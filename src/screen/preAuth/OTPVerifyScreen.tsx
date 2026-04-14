@@ -1,0 +1,215 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { COLORS } from '../../helpers/values/colors';
+import { getFontFamily } from '../../helpers/fonts';
+import { moderateScale, scale, verticalScale } from '../../helpers/dimension';
+import SvgIcon from '../../helpers/svgComponents';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ErrorBottomSheet from '../../components/ErrorBottomSheet';
+import BottomSheetComponent from '../../components/bottomsheet';
+import OTPInput from '../../components/otpComponents';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'OTPVerify'>;
+
+const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { t } = useTranslation();
+  const { phoneNumber } = route.params;
+  const [currentOtp, setCurrentOtp] = useState('');
+  const [timer, setTimer] = useState(30);
+  const [isErrorVisible, setIsErrorVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+
+  const handleNext = () => {
+    const otpValue = currentOtp;
+
+   
+    if (otpValue === '1234') {
+      navigation.navigate('LocationEnable');
+      return;
+    }
+
+    // Simulate error cases
+    if (otpValue.length === 5) {
+      // 30% chance of "Network Issue", else "Wrong OTP"
+      const isNetworkIssue = Math.random() < 0.3;
+      if (isNetworkIssue) {
+        setErrorMessage(t('network_issue_desc', 'Something went wrong with the connection. Please check your internet and try again.'));
+      } else {
+        setErrorMessage(t('wrong_otp_desc', 'The OTP you entered is incorrect. Please try again or resend a new code.'));
+      }
+      setIsErrorVisible(true);
+    }
+  };
+
+  const formatTimer = (time: number) => {
+    return time < 10 ? `0${time}` : time;
+  };
+
+  const maskedPhone = `+91${phoneNumber.slice(0, 3)}*******`;
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <SvgIcon name="fleetronixLogo" width={scale(256)} height={verticalScale(50)} color={COLORS.textColor.color3} />
+
+            <View style={styles.titleContainer}>
+              <Text style={styles.titleText}>
+                {t('enter', 'Enter')} <Text style={styles.otpHighlight}>{t('otp_upper', 'OTP')}</Text>
+              </Text>
+            </View>
+
+            <Text style={styles.description}>
+              {t('otp_description', 'Please enter the 5 digit OTP Code sent on')}
+              {'\n'}
+              <Text style={styles.phoneNumber}>{maskedPhone}</Text>
+            </Text>
+          </View>
+
+          <View style={styles.otpWrapper}>
+            <OTPInput 
+              length={4} 
+              onChangeOTP={(val) => setCurrentOtp(val)} 
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.nextButton}
+            onPress={handleNext}
+            activeOpacity={0.8}
+            disabled={currentOtp.length < 4}
+          >
+            <Text style={styles.nextButtonText}>{t('next_upper', 'NEXT')}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <Text style={styles.resendText}>
+              {t('didnt_receive', "Didn't receive the code?")}{' '}
+              <Text
+                style={[styles.resendAction, timer > 0 && styles.disabledResend]}
+                onPress={() => timer === 0 && setTimer(30)}
+              >
+                {t('resend', 'Resend')} ({timer}s)
+              </Text>
+            </Text>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+      <BottomSheetComponent isVisible={isErrorVisible} onBackdropPress={() => setIsErrorVisible(false)}>
+
+        <ErrorBottomSheet
+
+          message={errorMessage}
+          onClose={() => setIsErrorVisible(false)}
+          title={errorMessage.includes('connection') ? t('network_error', 'Network Error') : t('invalid_otp', 'Invalid OTP')}
+        />
+      </BottomSheetComponent>
+    </SafeAreaView>
+  );
+};
+
+export default OTPVerifyScreen;
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(40),
+  },
+  header: {
+    alignItems: 'flex-start',
+    marginBottom: verticalScale(40),
+  },
+  titleContainer: {
+    marginTop: verticalScale(32),
+  },
+  titleText: {
+    fontFamily: getFontFamily('ApercuPro', 'Bold'),
+    fontSize: moderateScale(28),
+    color: COLORS.textColor.color1,
+    fontWeight: '700',
+  },
+  otpHighlight: {
+    color: COLORS.primary,
+  },
+  description: {
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+    fontSize: moderateScale(14),
+    color: COLORS.textColor.color2.one,
+    marginTop: verticalScale(16),
+    lineHeight: verticalScale(20),
+  },
+  phoneNumber: {
+    color: COLORS.textColor.color2.one,
+  },
+  otpWrapper: {
+    marginBottom: verticalScale(40),
+  },
+  nextButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: verticalScale(18),
+    borderRadius: moderateScale(12),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  nextButtonText: {
+    fontFamily: getFontFamily('ApercuPro', 'Bold'),
+    fontSize: moderateScale(16),
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  footer: {
+    marginTop: verticalScale(24),
+    alignItems: 'center',
+  },
+  resendText: {
+    fontFamily: getFontFamily('ApercuPro', 'Medium'),
+    fontSize: moderateScale(14),
+    color: COLORS.textColor.color1,
+  },
+  resendAction: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  disabledResend: {
+    color: COLORS.primary,
+    opacity: 0.6,
+  },
+});
