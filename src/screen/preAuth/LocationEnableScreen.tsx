@@ -78,7 +78,7 @@ export default LocationEnableScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.secondary,
   },
   container: {
     flex: 1,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   description: {
     fontFamily: getFontFamily('ApercuPro', 'Regular'),
     fontSize: moderateScale(16),
-    color: '#858080', // As per color2.one but fixed if needed
+    color: COLORS.textColor.color2.one,
     textAlign: 'center',
     paddingHorizontal: scale(20),
     lineHeight: verticalScale(24),
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: getFontFamily('ApercuPro', 'Bold'),
     fontSize: moderateScale(18),
-    color: 'white',
+    color: COLORS.secondary,
     fontWeight: '600',
   },
   skipButton: {
@@ -151,6 +151,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: getFontFamily('ApercuPro', 'Medium'),
     fontSize: moderateScale(16),
-    color: '#858080',
+    color: COLORS.textColor.color2.one,
   },
 });

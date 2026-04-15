@@ -5,17 +5,13 @@ import {
   View,
   ImageBackground,
   TouchableOpacity,
-
-  Dimensions,
 } from 'react-native';
-import { Fonts, getFontFamily } from '../../helpers/fonts';
+import { getFontFamily } from '../../helpers/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { moderateScale, scale, SCREEN, verticalScale } from '../../helpers/dimension';
 import { COLORS } from '../../helpers/values/colors';
 import SvgIcon from '../../helpers/svgComponents';
 import { t } from 'i18next';
-
-const { width } = Dimensions.get('window');
 
 
 const OnboardingScreen = ({ navigation }: any) => {
@@ -38,7 +34,7 @@ const OnboardingScreen = ({ navigation }: any) => {
                 activeOpacity={0.8}
               >
                 <Text style={styles.buttonText}>Continue</Text>
-                <SvgIcon name="arrowRight" width={20} height={20} color="white" />
+                <SvgIcon name="arrowRight" width={scale(20)} height={verticalScale(20)} color={COLORS.secondary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -66,25 +62,20 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    backgroundColor: COLORS.primary, 
+    backgroundColor: COLORS.primary,
     borderRadius: moderateScale(20),
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: scale(20),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: COLORS.textColor.color3,
+    shadowOffset: { width: 0, height: scale(4) },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: moderateScale(8),
     elevation: 8,
   },
   contentContainer: {
     width: '100%',
     alignItems: 'center',
-  },
-  title: {
-    fontFamily: 'InknutAntiqua-Regular',
-    fontSize: moderateScale(64),
-    color: COLORS.secondary,
   },
   subtitle: {
     fontFamily: getFontFamily('ApercuPro', 'Medium'),
@@ -102,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(20),
     borderRadius: moderateScale(12),
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: COLORS.secondary,
   },
   buttonText: {
     fontFamily: getFontFamily('ApercuPro', 'Medium'),

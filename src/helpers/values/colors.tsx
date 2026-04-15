@@ -7,7 +7,7 @@ export const COLORS = {
     },
     textColor:{
         color1:"rgba(30, 9, 9, 1)",
-        color2:{one:"rgba(133, 128, 128, 1)",two:"rgba(133, 128, 128, 0.2)",three:"rgba(133, 128, 128, 0.4)"},
+        color2: { one: "rgba(133, 128, 128, 1)", two: "rgba(133, 128, 128, 0.2)", three: "rgba(133, 128, 128, 0.4)", four: 'rgba(133, 128, 128, 1)' },
         color3:'rgba(0, 0, 0, 1)'
     }
 }

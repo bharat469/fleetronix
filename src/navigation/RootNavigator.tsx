@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LANGUAGE_STORAGE_KEY } from '../i18n';
 
 // Import screens
 import OnboardingScreen from '../screen/preAuth/onboardingScreen';
@@ -18,31 +16,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export const RootNavigator = () => {
   // Replace this useState with your actual store or context for authentication
   const [userToken, setUserToken] = useState<string | null>(null);
-  
   const [isReady, setIsReady] = useState(false);
-  const [initialPreAuthRoute, setInitialPreAuthRoute] = useState<keyof RootStackParamList>('Onboarding');
 
   useEffect(() => {
-    const checkPersistedData = async () => {
-      try {
-        // Commented out to allow accessing language screen again
-        /*
-        const storedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
-        if (storedLanguage) {
-          setInitialPreAuthRoute('Login');
-        } else {
-          setInitialPreAuthRoute('Onboarding');
-        }
-        */
-        setInitialPreAuthRoute('Onboarding');
-      } catch (e) {
-        console.error('Failure reading storage during init navigation', e);
-      } finally {
-        setIsReady(true);
-      }
-    };
-    
-    checkPersistedData();
+    setIsReady(true);
   }, []);
 
   if (!isReady) {
@@ -73,5 +50,3 @@ export const RootNavigator = () => {
     </Stack.Navigator>
   );
 };
-
-

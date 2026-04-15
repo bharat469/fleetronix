@@ -4,25 +4,25 @@ import {
   Text,
   View,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import Modal from 'react-native-modal';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../helpers/values/colors';
 import { getFontFamily } from '../helpers/fonts';
 import { moderateScale, scale, verticalScale } from '../helpers/dimension';
 
 interface PhoneConfirmationSheetProps {
-  isVisible: boolean;
   phoneNumber: string;
   onCancel: () => void;
   onConfirm: () => void;
+  isPending?: boolean;
 }
 
 const PhoneConfirmationSheet: React.FC<PhoneConfirmationSheetProps> = ({
-  isVisible,
   phoneNumber,
   onCancel,
   onConfirm,
+  isPending = false,
 }) => {
   const { t } = useTranslation();
 
@@ -53,14 +53,19 @@ const PhoneConfirmationSheet: React.FC<PhoneConfirmationSheetProps> = ({
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              onPress={onConfirm} 
+            <TouchableOpacity
+              onPress={onConfirm}
               activeOpacity={0.8}
-              style={styles.nextButton}
+              style={[styles.nextButton, isPending && styles.nextButtonDisabled]}
+              disabled={isPending}
             >
-              <Text style={styles.nextButtonText}>
-                {t('next', 'Next')}
-              </Text>
+              {isPending ? (
+                <ActivityIndicator color={COLORS.secondary} />
+              ) : (
+                <Text style={styles.nextButtonText}>
+                  {t('next', 'Next')}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -78,15 +83,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.secondary,
     borderRadius: moderateScale(20),
     padding: moderateScale(24),
     width: '90%',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: COLORS.textColor.color3,
+    shadowOffset: { width: 0, height: scale(10) },
     shadowOpacity: 0.1,
-    shadowRadius: 20,
+    shadowRadius: moderateScale(20),
     elevation: 5,
   },
   title: {
@@ -144,10 +149,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  nextButtonDisabled: {
+    opacity: 0.6,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
   nextButtonText: {
     fontFamily: getFontFamily('ApercuPro', 'Bold'),
     fontSize: moderateScale(18),
-    color: '#FFFFFF',
+    color: COLORS.secondary,
     fontWeight: '600',
   },
 });

@@ -6,6 +6,7 @@ import React, {
 } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { COLORS } from '../helpers/values/colors';
+import { moderateScale, scale, verticalScale } from '../helpers/dimension';
 
 
 interface OTPInputProps {
@@ -93,36 +94,36 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     box: {
-        width: 60,
-        height: 70,
+        width: scale(60),
+        height: verticalScale(70),
         borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.1)',
-        borderRadius: 12,
+        borderColor: COLORS.textColor.color2.two,
+        borderRadius: moderateScale(12),
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        backgroundColor: COLORS.secondary,
+        shadowColor: COLORS.textColor.color3,
+        shadowOffset: { width: 0, height: scale(2) },
         shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowRadius: moderateScale(4),
         elevation: 2,
     },
     boxActive: {
-        borderColor: 'rgba(0,0,0,0.15)',
+        borderColor: COLORS.textColor.color2.three,
         shadowOpacity: 0.1,
     },
     input: {
         width: '100%',
         height: '100%',
-        fontSize: 28,
+        fontSize: moderateScale(28),
         fontWeight: '700',
         color: COLORS.textColor.color1,
         textAlign: 'center',
     },
     cursor: {
         position: 'absolute',
-        width: 2,
-        height: 30,
+        width: scale(2),
+        height: verticalScale(30),
         backgroundColor: COLORS.primary,
     },
 });
