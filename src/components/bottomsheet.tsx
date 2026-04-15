@@ -1,4 +1,3 @@
-import { StyleSheet, Text, View } from 'react-native';
 import React, { ReactNode } from 'react';
 import Modal from 'react-native-modal';
 
@@ -33,5 +32,3 @@ const BottomSheetComponent: React.FC<bottomComponentprops> = ({
 };
 
 export default BottomSheetComponent;
-
-const styles = StyleSheet.create({});

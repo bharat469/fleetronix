@@ -1,11 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import Modal from 'react-native-modal';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../helpers/values/colors';
 import { getFontFamily } from '../helpers/fonts';
 import { moderateScale, scale, verticalScale } from '../helpers/dimension';
-import SvgIcon from '../helpers/svgComponents';
 
 interface ErrorBottomSheetProps {
 
@@ -53,25 +51,21 @@ const ErrorBottomSheet: React.FC<ErrorBottomSheetProps> = ({
 export default ErrorBottomSheet;
 
 const styles = StyleSheet.create({
-  modal: {
-    margin: 0,
-    justifyContent: 'flex-end',
-  },
   content: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.secondary,
     borderRadius: moderateScale(24),
     paddingHorizontal: scale(24),
     paddingBottom: verticalScale(40),
     paddingTop: verticalScale(12),
     alignItems: 'center',
-    justifyContent:'flex-end',
-    marginHorizontal:scale(16)
+    justifyContent: 'flex-end',
+    marginHorizontal: scale(16),
   },
   indicator: {
     width: scale(40),
     height: verticalScale(5),
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
+    backgroundColor: COLORS.textColor.color2.two,
+    borderRadius: moderateScale(3),
     marginBottom: verticalScale(24),
   },
   header: {
@@ -89,7 +83,7 @@ const styles = StyleSheet.create({
     marginRight: scale(10),
   },
   exclamation: {
-    color: 'white',
+    color: COLORS.secondary,
     fontWeight: 'bold',
     fontSize: moderateScale(14),
   },
@@ -118,7 +112,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: getFontFamily('ApercuPro', 'Bold'),
     fontSize: moderateScale(16),
-    color: 'white',
+    color: COLORS.secondary,
     fontWeight: '700',
   },
 });

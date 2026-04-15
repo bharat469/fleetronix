@@ -1,4 +1,4 @@
-import { Dimensions, PixelRatio } from 'react-native';
+import { Dimensions } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -19,8 +19,4 @@ export const moderateScale = (size: number, factor = 0.5) =>
 export const SCREEN = {
   WIDTH: SCREEN_WIDTH,
   HEIGHT: SCREEN_HEIGHT,
-  isSmallDevice: SCREEN_WIDTH <= 360,
-  isTablet: SCREEN_WIDTH >= 768,
 };
-
-export const pixelRatio = PixelRatio.get();

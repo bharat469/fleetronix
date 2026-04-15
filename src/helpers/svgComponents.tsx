@@ -29,5 +29,4 @@ const SvgIcon: React.FC<SvgIconsProps> = ({
   return <IconComponent width={width} height={height} fill={fill} {...props} />;
 };
 
-export type IconNameType = keyof typeof SVG_Url;
 export default SvgIcon;

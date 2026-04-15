@@ -3,19 +3,17 @@ import {
   StyleSheet,
   Text,
   View,
-
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getFontFamily } from '../../helpers/fonts';
 import SvgIcon from '../../helpers/svgComponents';
-import LinearGradient from 'react-native-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { moderateScale, scale, verticalScale } from '../../helpers/dimension';
 import { COLORS } from '../../helpers/values/colors';
@@ -23,6 +21,8 @@ import PhoneConfirmationSheet from '../../components/PhoneConfirmationSheet';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import BottomSheetComponent from '../../components/bottomsheet';
+import ErrorBottomSheet from '../../components/ErrorBottomSheet';
+import { useSendOtp } from '../../hooks/useAuth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -32,102 +32,132 @@ const LoginScreen = ({ navigation }: Props) => {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isApiErrorVisible, setIsApiErrorVisible] = useState(false);
+  const [apiErrorMessage, setApiErrorMessage] = useState('');
 
- 
+  const { mutate: sendOtpMutate, isPending } = useSendOtp({
+    onSuccess: () => {
+      setIsModalVisible(false);
+      navigation.navigate('OTPVerify', { phoneNumber });
+    },
+    onError: (err: Error) => {
+      setIsModalVisible(false);
+      setApiErrorMessage(
+        err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.')
+      );
+      setIsApiErrorVisible(true);
+    },
+  });
 
   const handleSignIn = () => {
     if (phoneNumber.length !== 10) {
       setError(t('invalid_phone', 'Please enter a valid 10-digit number'));
       return;
     }
+    setError('');
     setIsModalVisible(true);
   };
 
   const onConfirm = () => {
-    setIsModalVisible(false);
-    // Navigate to OTP screen
-    navigation.navigate('OTPVerify', { phoneNumber: phoneNumber });
+    // Call the send-OTP API via TanStack mutation
+    sendOtpMutate({ mobile: phoneNumber, purpose: 'register' });
   };
 
   return (
-    <LinearGradient
-      colors={['rgba(202, 32, 39, 0.12)', 'rgba(255, 255, 255, 0)']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.content}
         >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.innerContainer}>
-            <View style={styles.header}>
-              <SvgIcon name="fleetronixLogo" width={scale(256)} height={verticalScale(50)} color={COLORS.primary} />
-              <Text style={styles.welcomeTitle}>{t('welcome', 'Welcome')}</Text>
-              <Text style={styles.instructionText}>
-                {t('please_enter_details', 'Please enter your sign in details.')}
-              </Text>
-            </View>
-
-            {/* Input Section */}
-            <View style={styles.formContainer}>
-              <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-                <View style={styles.labelContainer}>
-                  <Text style={styles.labelText}>
-                    {t('phone_number_label', 'Phone Number')}
-                  </Text>
-                </View>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={t('enter_phone', 'Enter Phone Number')}
-                  placeholderTextColor={COLORS.textColor.color2.two}
-                  keyboardType="phone-pad"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                />
-                <View style={styles.iconContainer}>
-                  <SvgIcon name="phoneIcon" width={20} height={20} color={COLORS.textColor.color2.two} />
-                </View>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.innerContainer}>
+              <View style={styles.header}>
+                <SvgIcon name="fleetronixLogo" width={scale(256)} height={verticalScale(50)} color={COLORS.primary} />
+                <Text style={styles.welcomeTitle}>{t('welcome', 'Welcome')}</Text>
+                <Text style={styles.instructionText}>
+                  {t('please_enter_details', 'Please enter your sign in details.')}
+                </Text>
               </View>
-              {error.length !== 0 && (
-                <Text style={styles.errorMessage}>{error}</Text>
-              )}
-            </View>
 
-            {/* Footer Section */}
-            <View style={styles.footer}>
-              <Text style={styles.disclaimerText}>
-                {t('disclaimer_text', 'By clicking Next,you agree with our')} {'\n'}
-                <Text style={styles.boldText}>{t('terms_and_conditions', 'Terms and Conditions')}</Text> {t('and', 'and')}{' '}
-                <Text style={styles.boldText}>{t('privacy_policy', 'Privacy Policy')}</Text>
-              </Text>
-              <TouchableOpacity 
-                style={[styles.signInButton]} 
-                activeOpacity={0.8}
-                onPress={handleSignIn}
-               
-              >
-                <Text style={styles.signInButtonText}>{t('sign_in', 'Sign In')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-    <BottomSheetComponent
-    isVisible={isModalVisible}
-    onBackdropPress={() => setIsModalVisible(false)}
-    onBackButtonPress={() => setIsModalVisible(false)}
-    >
+              {/* Input Section */}
+              <View style={styles.formContainer}>
+                <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+                  <View style={styles.labelContainer}>
+                    <Text style={styles.labelText}>
+                      {t('phone_number_label', 'Phone Number')}
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={t('enter_phone', 'Enter Phone Number')}
+                    placeholderTextColor={COLORS.textColor.color2.two}
+                    keyboardType="phone-pad"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                  />
+                  <View style={styles.iconContainer}>
+                    <SvgIcon name="phoneIcon" width={20} height={20} color={COLORS.textColor.color2.two} />
+                  </View>
+                </View>
+                {error.length !== 0 && (
+                  <Text style={styles.errorMessage}>{error}</Text>
+                )}
+              </View>
 
-    <PhoneConfirmationSheet
+              {/* Footer Section */}
+              <View style={styles.footer}>
+                <Text style={styles.disclaimerText}>
+                  {t('disclaimer_text', 'By clicking Next,you agree with our')} {'\n'}
+                  <Text style={styles.boldText}>{t('terms_and_conditions', 'Terms and Conditions')}</Text> {t('and', 'and')}{' '}
+                  <Text style={styles.boldText}>{t('privacy_policy', 'Privacy Policy')}</Text>
+                </Text>
+                <TouchableOpacity
+                  style={[styles.signInButton, isPending && styles.signInButtonDisabled]}
+                  activeOpacity={0.8}
+                  onPress={handleSignIn}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                      <Text style={styles.signInButtonText}>{t('sign_in', 'Sign In')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+      {/* Phone Confirmation Bottom Sheet */}
+      <BottomSheetComponent
+        isVisible={isModalVisible}
+        onBackdropPress={() => setIsModalVisible(false)}
+        onBackButtonPress={() => setIsModalVisible(false)}
+      >
+        <PhoneConfirmationSheet
           phoneNumber={phoneNumber}
           onCancel={() => setIsModalVisible(false)}
-          onConfirm={onConfirm} isVisible={false}    />
-    </BottomSheetComponent>
-  </LinearGradient>
+          onConfirm={onConfirm}
+          isPending={isPending}
+        />
+      </BottomSheetComponent>
+
+      {/* API Error Bottom Sheet */}
+      <BottomSheetComponent
+        isVisible={isApiErrorVisible}
+        onBackdropPress={() => setIsApiErrorVisible(false)}
+        onBackButtonPress={() => setIsApiErrorVisible(false)}
+      >
+        <ErrorBottomSheet
+          title={t('network_error', 'Network Error')}
+          message={apiErrorMessage}
+          onClose={() => setIsApiErrorVisible(false)}
+        />
+      </BottomSheetComponent>
+    </View>
   );
 };
 
@@ -161,55 +191,55 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     color: COLORS.textColor.color1,
     marginTop: verticalScale(16),
-    fontWeight:'700'
+    fontWeight: '700'
   },
   instructionText: {
     fontFamily: getFontFamily('ApercuPro', 'Regular'),
     fontSize: moderateScale(14),
-    color: COLORS.textColor.color2.one,
+    color: COLORS.textColor.color2.four,
     marginTop: verticalScale(10),
   },
   formContainer: {
     flex: 1,
-    marginTop: verticalScale(20),
+    marginTop: verticalScale(16),
   },
   inputWrapper: {
     borderWidth: 1,
     borderColor: COLORS.textColor.color2.two,
-    borderRadius: 12,
-    height: 60,
+    borderRadius: moderateScale(12),
+    height: verticalScale(56),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(16),
     position: 'relative',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.secondary,
   },
   inputWrapperFocused: {
     borderColor: COLORS.primary,
   },
   labelContainer: {
     position: 'absolute',
-    top: -10,
-    left: 20,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 6,
+    top: verticalScale(-10),
+    left: scale(20),
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: scale(6),
     zIndex: 1,
   },
   labelText: {
     fontFamily: getFontFamily('ApercuPro', 'Medium'),
     fontSize: moderateScale(12),
-    fontWeight:'400',
+    fontWeight: '400',
     color: COLORS.textColor.color2.one,
   },
   textInput: {
     flex: 1,
     fontFamily: getFontFamily('ApercuPro', 'Regular'),
-    fontSize: 16,
-    color: '#333333',
+    fontSize: moderateScale(16),
+    color: COLORS.textColor.color1,
     height: '100%',
   },
   iconContainer: {
-    marginLeft: 10,
+    marginLeft: scale(10),
   },
   footer: {
     alignItems: 'center',
@@ -227,7 +257,7 @@ const styles = StyleSheet.create({
     color: COLORS.textColor.color1,
   },
   signInButton: {
-    backgroundColor: COLORS.primary, 
+    backgroundColor: COLORS.primary,
     width: '100%',
     paddingVertical: verticalScale(18),
     borderRadius: moderateScale(12),
@@ -246,8 +276,8 @@ const styles = StyleSheet.create({
   },
   signInButtonText: {
     fontFamily: getFontFamily('ApercuPro', 'Medium'),
-    fontSize: 18,
-    color: '#FFFFFF',
+    fontSize: moderateScale(18),
+    color: COLORS.secondary,
   },
   errorMessage: {
     color: COLORS.primary,

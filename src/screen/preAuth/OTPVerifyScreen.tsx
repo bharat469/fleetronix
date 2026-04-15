@@ -1,13 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../helpers/values/colors';
@@ -17,8 +15,6 @@ import SvgIcon from '../../helpers/svgComponents';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ErrorBottomSheet from '../../components/ErrorBottomSheet';
-import BottomSheetComponent from '../../components/bottomsheet';
 import OTPInput from '../../components/otpComponents';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OTPVerify'>;
@@ -28,8 +24,6 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
   const { phoneNumber } = route.params;
   const [currentOtp, setCurrentOtp] = useState('');
   const [timer, setTimer] = useState(30);
-  const [isErrorVisible, setIsErrorVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -40,24 +34,8 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
 
 
   const handleNext = () => {
-    const otpValue = currentOtp;
-
-   
-    if (otpValue === '1234') {
+    if (currentOtp === '1234') {
       navigation.navigate('LocationEnable');
-      return;
-    }
-
-    // Simulate error cases
-    if (otpValue.length === 5) {
-      // 30% chance of "Network Issue", else "Wrong OTP"
-      const isNetworkIssue = Math.random() < 0.3;
-      if (isNetworkIssue) {
-        setErrorMessage(t('network_issue_desc', 'Something went wrong with the connection. Please check your internet and try again.'));
-      } else {
-        setErrorMessage(t('wrong_otp_desc', 'The OTP you entered is incorrect. Please try again or resend a new code.'));
-      }
-      setIsErrorVisible(true);
     }
   };
 
@@ -84,7 +62,7 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
 
             <Text style={styles.description}>
-              {t('otp_description', 'Please enter the 5 digit OTP Code sent on')}
+              {t('otp_description', 'Please enter the 4 digit OTP Code sent on')}
               {'\n'}
               <Text style={styles.phoneNumber}>{maskedPhone}</Text>
             </Text>
@@ -119,15 +97,6 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       </KeyboardAvoidingView>
-      <BottomSheetComponent isVisible={isErrorVisible} onBackdropPress={() => setIsErrorVisible(false)}>
-
-        <ErrorBottomSheet
-
-          message={errorMessage}
-          onClose={() => setIsErrorVisible(false)}
-          title={errorMessage.includes('connection') ? t('network_error', 'Network Error') : t('invalid_otp', 'Invalid OTP')}
-        />
-      </BottomSheetComponent>
     </SafeAreaView>
   );
 };
@@ -137,7 +106,7 @@ export default OTPVerifyScreen;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.secondary,
   },
   container: {
     flex: 1,
@@ -191,7 +160,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontFamily: getFontFamily('ApercuPro', 'Bold'),
     fontSize: moderateScale(16),
-    color: '#FFFFFF',
+    color: COLORS.secondary,
     fontWeight: '700',
     letterSpacing: 1,
   },
