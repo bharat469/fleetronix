@@ -16,14 +16,71 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import OTPInput from '../../components/otpComponents';
+import { useResendOtp, useRegister, useLogin } from '../../hooks/useAuth';
+import BottomSheetComponent from '../../components/bottomsheet';
+import ErrorBottomSheet from '../../components/ErrorBottomSheet';
+import { ActivityIndicator } from 'react-native';
+import { useDispatch } from 'react-redux';
+import { setTokens } from '../../redux/slices/authSlice';
+import { storage } from '../../helpers/asyncHelper';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OTPVerify'>;
 
 const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
   const { t } = useTranslation();
-  const { phoneNumber } = route.params;
+  const { phoneNumber, purpose } = route.params;
   const [currentOtp, setCurrentOtp] = useState('');
   const [timer, setTimer] = useState(30);
+  const [isApiErrorVisible, setIsApiErrorVisible] = useState(false);
+  const [apiErrorMessage, setApiErrorMessage] = useState('');
+  const dispatch = useDispatch();
+
+  const handleAuthSuccess = async (data: any) => {
+    const authData = {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      driverId: data.data.driver_id,
+      purpose: purpose,
+    };
+
+    dispatch(setTokens(authData));
+    
+    // Save to AsyncStorage
+    await storage.set('userToken', authData.accessToken);
+    await storage.set('refreshToken', authData.refreshToken);
+    await storage.set('driverId', authData.driverId);
+    await storage.set('purpose', authData.purpose);
+    
+    if (purpose === 'login') {
+      navigation.navigate('Home');
+    } else {
+      navigation.navigate('LocationEnable');
+    }
+  };
+
+  const { mutate: registerMutate, isPending: isRegistering } = useRegister({
+    onSuccess: (data) => {
+      console.log('Registration success:', data);
+      handleAuthSuccess(data);
+    },
+    onError: (err: Error) => {
+      setApiErrorMessage(err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setIsApiErrorVisible(true);
+    },
+  });
+
+  const { mutate: loginMutate, isPending: isLoggingIn } = useLogin({
+    onSuccess: (data) => {
+      console.log('Login success:', data);
+      handleAuthSuccess(data);
+    },
+    onError: (err: Error) => {
+      setApiErrorMessage(err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setIsApiErrorVisible(true);
+    },
+  });
+
+  const isPendingAuth = isRegistering || isLoggingIn;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -34,13 +91,32 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
 
 
   const handleNext = () => {
-    if (currentOtp === '1234') {
-      navigation.navigate('LocationEnable');
+    if (currentOtp.length === 4) {
+      if (purpose === 'register') {
+        registerMutate({ mobile: phoneNumber, otp: currentOtp });
+      } else {
+        loginMutate({ mobile: phoneNumber, otp: currentOtp });
+      }
     }
   };
 
   const formatTimer = (time: number) => {
     return time < 10 ? `0${time}` : time;
+  };
+
+  const { mutate: resendOtp, isPending: isResending } = useResendOtp({
+    onSuccess: (data) => {
+      console.log('Resend OTP response:', data);
+      setTimer(30);
+    },
+    onError: (error) => {
+      console.error('Error resending OTP:', error);
+    }
+  });
+
+  const handleResendOTP = () => {
+    if (timer > 0 || isResending) return;
+    resendOtp({ mobile: phoneNumber, purpose: 'login' });
   };
 
   const maskedPhone = `+91${phoneNumber.slice(0, 3)}*******`;
@@ -76,27 +152,44 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={styles.nextButton}
+            style={[styles.nextButton, (currentOtp.length < 4 || isPendingAuth) && styles.disabledButton]}
             onPress={handleNext}
             activeOpacity={0.8}
-            disabled={currentOtp.length < 4}
+            disabled={currentOtp.length < 4 || isPendingAuth}
           >
-            <Text style={styles.nextButtonText}>{t('next_upper', 'NEXT')}</Text>
+            {isPendingAuth ? (
+              <ActivityIndicator color={COLORS.secondary} />
+            ) : (
+              <Text style={styles.nextButtonText}>{t('next_upper', 'NEXT')}</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
             <Text style={styles.resendText}>
               {t('didnt_receive', "Didn't receive the code?")}{' '}
               <Text
-                style={[styles.resendAction, timer > 0 && styles.disabledResend]}
-                onPress={() => timer === 0 && setTimer(30)}
+                style={[styles.resendAction, (timer > 0 || isResending) && styles.disabledResend]}
+                onPress={handleResendOTP}
               >
-                {t('resend', 'Resend')} ({timer}s)
+                {isResending ? t('loading', 'Loading...') : `${t('resend', 'Resend')} (${timer}s)`}
               </Text>
             </Text>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* API Error Bottom Sheet */}
+      <BottomSheetComponent
+        isVisible={isApiErrorVisible}
+        onBackdropPress={() => setIsApiErrorVisible(false)}
+        onBackButtonPress={() => setIsApiErrorVisible(false)}
+      >
+        <ErrorBottomSheet
+          title={t('network_error', 'Network Error')}
+          message={apiErrorMessage}
+          onClose={() => setIsApiErrorVisible(false)}
+        />
+      </BottomSheetComponent>
     </SafeAreaView>
   );
 };
@@ -163,6 +256,11 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  disabledButton: {
+    backgroundColor: COLORS.textColor.color2.two,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   footer: {
     marginTop: verticalScale(24),

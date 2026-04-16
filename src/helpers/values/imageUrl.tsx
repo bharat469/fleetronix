@@ -1,4 +1,4 @@
-import Svg, { Path, SvgProps } from "react-native-svg";
+import Svg, { Path, SvgProps, Circle, Text as SVGText } from "react-native-svg";
 
 
 const ArrowRight = (props: SvgProps) => (
@@ -32,6 +32,7 @@ const PhoneIcon = ({ size = 24, color = '#d3d3d3' }) => (
 );
 
 
+
 const CheckIcon = ({ size = 20, color = '#CC2B2B' }) => (
   <Svg
     width={size}
@@ -47,11 +48,19 @@ const CheckIcon = ({ size = 20, color = '#CC2B2B' }) => (
   </Svg>
 );
 
+
+
 export const SVG_Url = {
- arrowRight:   ArrowRight,
- phoneIcon: PhoneIcon,
- checkIcon: CheckIcon,
- fleetronixLogo: require('../../assets/images/svg/Fleetronix.svg').default,
+  arrowRight: ArrowRight,
+  phoneIcon: PhoneIcon,
+  checkIcon: CheckIcon,
+  fleetronixLogo: require('../../assets/images/svg/Fleetronix.svg').default,
+  truckIcon: require('../../assets/images/svg/truck.svg').default,
+  searchIcon: require('../../assets/images/svg/search.svg').default,
+  cloudUpload: require('../../assets/images/svg/upload.svg').default,
+  camerIcon: require('../../assets/images/svg/cameraIcon.svg').default,
+  callIcon: require('../../assets/images/svg/phoneActions.svg').default,
+  locationIllustration: require('../../assets/images/svg/location.svg').default,
 }
 
 export type IconName = keyof typeof SVG_Url;
