@@ -22,7 +22,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import BottomSheetComponent from '../../components/bottomsheet';
 import ErrorBottomSheet from '../../components/ErrorBottomSheet';
-import { useSendOtp } from '../../hooks/useAuth';
+import { useSendOtp, useCheckMobile } from '../../hooks/useAuth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -34,11 +34,12 @@ const LoginScreen = ({ navigation }: Props) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isApiErrorVisible, setIsApiErrorVisible] = useState(false);
   const [apiErrorMessage, setApiErrorMessage] = useState('');
+  const [purpose, setPurpose] = useState('');
 
-  const { mutate: sendOtpMutate, isPending } = useSendOtp({
+  const { mutate: sendOtpMutate, isPending: isSendOtpPending } = useSendOtp({
     onSuccess: () => {
       setIsModalVisible(false);
-      navigation.navigate('OTPVerify', { phoneNumber });
+      navigation.navigate('OTPVerify', { phoneNumber, purpose });
     },
     onError: (err: Error) => {
       setIsModalVisible(false);
@@ -49,18 +50,34 @@ const LoginScreen = ({ navigation }: Props) => {
     },
   });
 
+  const { mutate: checkMobileMutate, isPending: isCheckMobilePending } = useCheckMobile({
+    onSuccess: (response) => {
+      setPurpose(response.data.purpose);
+      setIsModalVisible(true);
+    },
+    onError: (err: Error) => {
+      setApiErrorMessage(
+        err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.')
+      );
+      setIsApiErrorVisible(true);
+    },
+  });
+
+  const isPending = isSendOtpPending || isCheckMobilePending;
+
   const handleSignIn = () => {
     if (phoneNumber.length !== 10) {
       setError(t('invalid_phone', 'Please enter a valid 10-digit number'));
       return;
     }
     setError('');
-    setIsModalVisible(true);
+    setPurpose(''); // Reset purpose before API call
+    checkMobileMutate({ mobile: phoneNumber });
   };
 
   const onConfirm = () => {
     // Call the send-OTP API via TanStack mutation
-    sendOtpMutate({ mobile: phoneNumber, purpose: 'register' });
+    sendOtpMutate({ mobile: phoneNumber, purpose: purpose });
   };
 
   return (
@@ -133,7 +150,7 @@ const LoginScreen = ({ navigation }: Props) => {
       </SafeAreaView>
       {/* Phone Confirmation Bottom Sheet */}
       <BottomSheetComponent
-        isVisible={isModalVisible}
+        isVisible={isModalVisible && !!purpose}
         onBackdropPress={() => setIsModalVisible(false)}
         onBackButtonPress={() => setIsModalVisible(false)}
       >

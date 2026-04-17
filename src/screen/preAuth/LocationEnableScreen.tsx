@@ -5,7 +5,7 @@ import {
   View,
   Image,
   TouchableOpacity,
-  SafeAreaView,
+
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../helpers/values/colors';
@@ -13,6 +13,8 @@ import { getFontFamily } from '../../helpers/fonts';
 import { moderateScale, scale, verticalScale } from '../../helpers/dimension';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import SvgIcon from '../../helpers/svgComponents';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LocationEnable'>;
 
@@ -22,21 +24,21 @@ const LocationEnableScreen: React.FC<Props> = ({ navigation }) => {
   const handleUseLocation = () => {
     // Logic to request location permission would go here
     console.log('Requesting location permission...');
-    navigation.navigate('Home');
+    navigation.navigate('SelectTruck');
   };
 
   const handleSkip = () => {
-    navigation.navigate('Home');
+    navigation.navigate('SelectTruck');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.illustrationContainer}>
-          <Image
-            source={require('../../assets/images/location_illustration.png')}
-            style={styles.illustration}
-            resizeMode="contain"
+          <SvgIcon 
+            name="locationIllustration" 
+            width={scale(300)} 
+            height={verticalScale(300)} 
           />
         </View>
 
