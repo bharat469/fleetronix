@@ -24,10 +24,13 @@ import { useUpdateDriver } from '../../hooks/useAuth';
 import { ActivityIndicator } from 'react-native';
 import { RootState } from '../../redux/store';
 
+import { useLanguage } from '../../hooks/useLanguage';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'ReadyToDrive'>;
 
 const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
+  const { currentLanguage } = useLanguage();
   const { selectedTrucks, selectedStates, licenseImage, adharImage } = useAppSelector((state) => state.registration);
   const { driverId, userToken } = useAppSelector((state: RootState) => state.auth);
   const [accepted, setAccepted] = useState(false);
@@ -46,20 +49,29 @@ const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
     },
   });
 
+
+
   const handleContinue = () => {
     if (accepted && driverId) {
-      const data: any = {
-        vehicle_experienced: selectedTrucks.map(truck => truck.id),
-        operating_state_ids: selectedStates.map(state => state.id),
-        status: 'available',
-        is_active: true,
-        kyc_status: 'pending',
+      // Map short language codes to full names
+      const languageMap: Record<string, string> = {
+        'en': 'english',
+        'hi': 'hindi',
+        'te': 'telugu',
+        'kn': 'kannada',
+        'bn': 'bengali',
+        'mr': 'marathi'
       };
 
-
+      const data: any = {
+        vehicle_experienced: selectedTrucks.map(truck => truck.id).join(','),
+        operating_state_ids: selectedStates.map(state => state.id).join(','),
+        is_active: true,
+        language_preference: languageMap[currentLanguage] || 'english',
+      };
 
       if (licenseImage) data.driving_licence = licenseImage;
-      // if (adharImage) data.aadhar = adharImage;
+      if (adharImage) data.aadhar = adharImage;
 
       updateDriverMutate({ driverId, token: userToken || '', data });
     } else if (!driverId) {

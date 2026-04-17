@@ -26,6 +26,9 @@ const authSlice = createSlice({
       state.driverId = action.payload.driverId;
       state.purpose = action.payload.purpose;
     },
+    setPurpose: (state, action: PayloadAction<string>) => {
+      state.purpose = action.payload;
+    },
     logout: (state) => {
       state.userToken = null;
       state.refreshToken = null;
@@ -35,5 +38,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setTokens, logout } = authSlice.actions;
+export const { setTokens, logout, setPurpose } = authSlice.actions;
 export default authSlice.reducer;

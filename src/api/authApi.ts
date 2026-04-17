@@ -53,10 +53,12 @@ export type LoginResponse = RegisterResponse;
 export type ResendOtpPayload = SendOtpPayload;
 export type ResendOtpResponse = SendOtpResponse;
 
+
+
 export interface UpdateDriverPayload {
   driverId: string;
   token: string;
-  data: Record<string, any>;
+  data: Record<string, any>; // Using any to allow strings, arrays, booleans, and Asset objects
 }
 
 export const sendOtp = async (payload: SendOtpPayload): Promise<SendOtpResponse> => {
@@ -174,84 +176,85 @@ export const login = async (payload: LoginPayload): Promise<LoginResponse> => {
   return json as LoginResponse;
 };
 
+import ReactNativeBlobUtil from 'react-native-blob-util';
+
 export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> => {
-  const formData = new FormData();
+  const { driverId, token, data } = payload;
+  const url = `${BASE_URL}/driver/${driverId}`;
 
-  Object.keys(payload.data).forEach(key => {
-    const value = payload.data[key];
-    console.log(value)
+  console.log('[updateDriver] 📤 Request start (react-native-blob-util)');
+
+  const multipartBody: any[] = [];
+
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    if (value === null || value === undefined) return;
+
+    // 1. Array → comma spearated
     if (Array.isArray(value)) {
-      value.forEach(item => {
-        const val = typeof item === 'object' && item !== null ? JSON.stringify(item) : item;
-        formData.append(key, val); // Removed [] as per ideal response keys
-      });
-    } else {
-      const isFile = typeof value === 'string' && (value.startsWith('file://') || value.startsWith('content://') || value.startsWith('ph://'));
-
-      if (isFile) {
-        let uri = value as string;
-        // On Android, ensure file:// prefix if it's a local path
-        if (uri.startsWith('/') && !uri.startsWith('file://')) {
-          uri = `file://${uri}`;
-        }
-
-
-        const filename = uri.split('/').pop() || 'file';
-        const ext = filename.split('.').pop()?.toLowerCase();
-
-        let type = 'image/jpeg';
-        if (ext === 'pdf') type = 'application/pdf';
-        else if (ext === 'png') type = 'image/png';
-        else if (ext === 'jpg' || ext === 'jpeg') type = 'image/jpeg';
-        console.log('kgfgn', key)
-        formData.append(key, {
-          uri,
-          name: filename,
-          type,
-        } as any);
-      } else if (value !== null && value !== undefined) {
-        const val = typeof value === 'object' ? JSON.stringify(value) : value;
-        formData.append(key, val);
-      }
+      multipartBody.push({ name: key, data: value.join(',') });
+      return;
     }
+
+    // 2. File handling
+    const isFile = (typeof value === 'object' && value?.uri) ||
+      (typeof value === 'string' && (
+        value.startsWith('file://') ||
+        value.startsWith('content://') ||
+        (value.startsWith('/') && (value.endsWith('.jpg') || value.endsWith('.jpeg') || value.endsWith('.png') || value.endsWith('.pdf')))
+      ));
+
+    if (isFile) {
+      const uri = typeof value === 'object' ? value.uri : value;
+      const fileName = typeof value === 'object' ? (value.fileName || value.name) : null;
+      const type = typeof value === 'object' ? value.type : null;
+
+      // react-native-blob-util needs the path without file://
+      const cleanPath = uri.replace('file://', '');
+      const name = fileName || uri.split('/').pop() || `${key}.jpg`;
+
+      multipartBody.push({
+        name: key,
+        filename: name,
+        type: type || 'image/jpeg',
+        data: ReactNativeBlobUtil.wrap(cleanPath)
+      });
+      return;
+    }
+
+    // 3. Normal fields
+    multipartBody.push({ name: key, data: String(value) });
   });
 
-  // Use getParts() to log the actual structure of the FormData before sending
-  console.log('[updateDriver] 📦 FormData Payload:', (formData as any).getParts());
-
-  const url = `${BASE_URL}/driver/${payload.driverId}`;
-  console.log('[updateDriver] 🚀 Request URL:', url);
-  console.log('[updateDriver] 🔑 Token:', payload.token ? 'Present' : 'MISSING');
-
   try {
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${payload.token}`,
-      },
-      body: formData,
-    });
+    const response = await ReactNativeBlobUtil.fetch('PATCH' as any, url, {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
+      Accept: 'application/json',
+    }, multipartBody);
 
+    const status = response.info().status;
     let json = null;
     try {
-      json = await response.json();
-    } catch { }
-
-    if (!response.ok) {
-      console.error('[updateDriver] ❌', response.status, json);
-      throw new Error(json?.message ?? 'Request failed');
+      json = response.json();
+    } catch (e) {
+      try {
+        json = JSON.parse(response.data);
+      } catch (e2) {
+        json = response.data;
+      }
     }
 
+    if (status < 200 || status >= 300) {
+      console.error('[updateDriver] ❌ Error:', status, json);
+      throw new Error(typeof json === 'object' ? (json?.message || 'Request failed') : 'Request failed');
+    }
+
+    console.log('[updateDriver] ✅ Success:', json);
     return json;
 
   } catch (error: any) {
-    console.log(error, 'ERROR');
-
-    if (error.message === 'Network request failed') {
-      console.error('💡 Check API URL / FormData / device network');
-    }
-
+    console.error('[updateDriver] ❌ ERROR:', error);
     throw error;
   }
 };

@@ -1,11 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { Asset } from 'react-native-image-picker';
 import { VehicleType, StateData } from '../../api/masterApi';
 
 interface RegistrationState {
   selectedTrucks: VehicleType[];
   selectedStates: StateData[];
-  licenseImage: string | null;
-  adharImage: string | null;
+  licenseImage: Asset | null;
+  adharImage: Asset | null;
 }
 
 const initialState: RegistrationState = {
@@ -43,10 +44,10 @@ const registrationSlice = createSlice({
         state.selectedStates.push(action.payload);
       }
     },
-    setLicenseImage: (state, action: PayloadAction<string | null>) => {
+    setLicenseImage: (state, action: PayloadAction<Asset | null>) => {
       state.licenseImage = action.payload;
     },
-    setAdharImage: (state, action: PayloadAction<string | null>) => {
+    setAdharImage: (state, action: PayloadAction<Asset | null>) => {
       state.adharImage = action.payload;
     },
     // General

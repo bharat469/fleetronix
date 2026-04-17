@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,10 +14,25 @@ import { getFontFamily } from '../../helpers/fonts';
 import { moderateScale, scale, verticalScale } from '../../helpers/dimension';
 import SvgIcon from '../../helpers/svgComponents';
 
+import { useAppDispatch } from '../../hooks/reduxHooks';
+import { setPurpose } from '../../redux/slices/authSlice';
+import { storage } from '../../helpers/asyncHelper';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'CallVerification'>;
 
 const CallVerificationScreen: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      dispatch(setPurpose('login'));
+      await storage.set('purpose', 'login');
+
+    }, 3000); // 10 seconds
+
+    return () => clearTimeout(timer);
+  }, [navigation, dispatch]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

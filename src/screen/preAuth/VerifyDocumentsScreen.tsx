@@ -41,12 +41,12 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           onPress: async () => {
             const result = await takePhoto();
             if (result.assets && result.assets.length > 0) {
-              const uri = result.assets[0].uri || null;
+              const asset = result.assets[0];
               if (type === 'license') {
-                dispatch(setLicenseImage(uri));
+                dispatch(setLicenseImage(asset));
                 setCurrentStep('LICENSE_PREVIEW');
               } else {
-                dispatch(setAdharImage(uri));
+                dispatch(setAdharImage(asset));
                 setCurrentStep('ADHAR_PREVIEW');
               }
             }
@@ -57,12 +57,12 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           onPress: async () => {
             const result = await pickImageFromLibrary();
             if (result.assets && result.assets.length > 0) {
-              const uri = result.assets[0].uri || null;
+              const asset = result.assets[0];
               if (type === 'license') {
-                dispatch(setLicenseImage(uri));
+                dispatch(setLicenseImage(asset));
                 setCurrentStep('LICENSE_PREVIEW');
               } else {
-                dispatch(setAdharImage(uri));
+                dispatch(setAdharImage(asset));
                 setCurrentStep('ADHAR_PREVIEW');
               }
             }
@@ -129,7 +129,8 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const renderPreviewState = (type: 'license' | 'adhar') => {
-    const uri = type === 'license' ? licenseImage : adharImage;
+    const asset = type === 'license' ? licenseImage : adharImage;
+    const uri = asset?.uri;
     const title = type === 'license'
       ? t('verify_license_title_preview', "Let's Verify your driver license")
       : t('verify_adhar_title_preview', "Let's Verify your Adhar Card");
