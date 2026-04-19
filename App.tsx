@@ -18,6 +18,7 @@ const queryClient = new QueryClient();
 
 // Initialize i18n
 import './src/i18n';
+import AlertPopup from './src/components/common/AlertPopup';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <NavigationContainer>
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             <RootNavigator />
+            <AlertPopup />
           </NavigationContainer>
         </SafeAreaProvider>
       </QueryClientProvider>

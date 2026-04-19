@@ -61,6 +61,12 @@ export const SVG_Url = {
   camerIcon: require('../../assets/images/svg/cameraIcon.svg').default,
   callIcon: require('../../assets/images/svg/phoneActions.svg').default,
   locationIllustration: require('../../assets/images/svg/location.svg').default,
+  accountMenuIcon: require('../../assets/images/svg/account.svg').default,
+  kycMenuIcon: require('../../assets/images/svg/kyc.svg').default,
+  statusMenuIcon: require('../../assets/images/svg/status.svg').default,
+  notificationMenuIcon: require('../../assets/images/svg/notification.svg').default,
+  sleepIcon: require('../../assets/images/svg/sleep.svg').default,
+  drivingIcon: require('../../assets/images/svg/driving.svg').default,
 }
 
 export type IconName = keyof typeof SVG_Url;

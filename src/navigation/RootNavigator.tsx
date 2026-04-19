@@ -16,7 +16,12 @@ import SelectStateScreen from '../screen/preAuth/SelectStateScreen';
 import VerifyDocumentsScreen from '../screen/preAuth/VerifyDocumentsScreen';
 import ReadyToDriveScreen from '../screen/preAuth/ReadyToDriveScreen';
 import CallVerificationScreen from '../screen/preAuth/CallVerificationScreen';
-import HomeScreen from '../screen/postAuth/homeScreen';
+import TabNavigator from './TabNavigator';
+import AccountDetailsScreen from '../screen/postAuth/AccountDetailsScreen';
+import AddAddressScreen from '../screen/postAuth/AddAddressScreen';
+import EnterAddressScreen from '../screen/postAuth/EnterAddressScreen';
+import KYCScreen from '../screen/postAuth/KYCScreen';
+import StatusScreen from '../screen/postAuth/StatusScreen';
 import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './types';
 
@@ -87,7 +92,14 @@ export const RootNavigator = () => {
           <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
         </Stack.Group>
       ) : (
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Group>
+          <Stack.Screen name="Home" component={TabNavigator} />
+          <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
+          <Stack.Screen name="AddAddress" component={AddAddressScreen} />
+          <Stack.Screen name="EnterAddress" component={EnterAddressScreen} />
+          <Stack.Screen name="KYC" component={KYCScreen} />
+          <Stack.Screen name="Status" component={StatusScreen} />
+        </Stack.Group>
       )}
     </Stack.Navigator>
   );

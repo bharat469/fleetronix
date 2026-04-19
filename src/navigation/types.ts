@@ -10,4 +10,9 @@ export type RootStackParamList = {
   ReadyToDrive: undefined;
   CallVerification: undefined;
   Home: undefined;
+  AccountDetails: undefined;
+  AddAddress: undefined;
+  EnterAddress: { initialAddress?: string };
+  KYC: undefined;
+  Status: undefined;
 };

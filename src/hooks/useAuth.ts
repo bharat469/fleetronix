@@ -5,8 +5,9 @@ import {
   checkMobile, CheckMobilePayload, CheckMobileResponse,
   register, RegisterPayload, RegisterResponse,
   login, LoginPayload, LoginResponse,
-  updateDriver, UpdateDriverPayload
+  updateDriver, UpdateDriverPayload, getDriverInfo
 } from '../api/authApi';
+import { useQuery } from '@tanstack/react-query';
 
 /**
  * TanStack mutation for sending OTP to the driver's phone number.
@@ -78,5 +79,13 @@ export const useUpdateDriver = (options?: {
     mutationFn: updateDriver,
     onSuccess: options?.onSuccess,
     onError: options?.onError,
+  });
+};
+
+export const useDriverInfo = (driverId: string, token: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['driverInfo', driverId],
+    queryFn: () => getDriverInfo(driverId, token),
+    enabled: enabled && !!driverId && !!token,
   });
 };
