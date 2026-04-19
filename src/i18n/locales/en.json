@@ -68,5 +68,20 @@
   "terms_title": "Terms and Conditions",
   "terms_content": "This is where the terms and conditions would go.",
   "call_verification_title": "You got a Call",
-  "call_verification_desc": "Stay on for support team verification. After completion, you'll be redirected to your Driver Dashboard for seamless navigation and updates. Thank you for your cooperation!"
+  "call_verification_desc": "Stay on for support team verification. After completion, you'll be redirected to your Driver Dashboard for seamless navigation and updates. Thank you for your cooperation!",
+  "current_address": "Current Address",
+  "welcome_upper": "WELCOME",
+  "driver_id": "Driver ID",
+  "vehicle_number": "Vehicle Number",
+  "new_trip": "New Trip",
+  "all_trips": "All Trips",
+  "expenses": "Expenses",
+  "support": "Support",
+  "pod": "POD",
+  "ledger": "Ledger",
+  "trip_card_desc": "Start your Trip Today in publishing and graphic design, Lorem ipsum is a placeholder text commonly.",
+  "home_tab": "Home",
+  "wallet_tab": "Wallet",
+  "chat_tab": "Chat",
+  "profile_tab": "Profile"
 }

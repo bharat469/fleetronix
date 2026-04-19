@@ -1,4 +1,9 @@
-const BASE_URL = 'http://103.197.76.50:8087/api';
+import Config from 'react-native-config';
+import { store } from '../redux/store';
+import { updateTokens, logout } from '../redux/slices/authSlice';
+import { storage } from '../helpers/asyncHelper.tsx';
+
+const BASE_URL = Config.API_BASE_URL;
 
 export interface SendOtpPayload {
   mobile: string;
@@ -245,6 +250,28 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
       }
     }
 
+    if (status === 401) {
+      try {
+        const newToken = await performTokenRefresh();
+        // Retry with new token
+        const retryResponse = await ReactNativeBlobUtil.fetch('PATCH' as any, url, {
+          Authorization: `Bearer ${newToken}`,
+          'Content-Type': 'multipart/form-data',
+          Accept: 'application/json',
+        }, multipartBody);
+        
+        const retryStatus = retryResponse.info().status;
+        const retryJson = retryResponse.json();
+        
+        if (retryStatus >= 200 && retryStatus < 300) {
+          console.log('[updateDriver] ✅ Success after refresh:', retryJson);
+          return retryJson;
+        }
+      } catch (refreshError) {
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+
     if (status < 200 || status >= 300) {
       console.error('[updateDriver] ❌ Error:', status, json);
       throw new Error(typeof json === 'object' ? (json?.message || 'Request failed') : 'Request failed');
@@ -257,4 +284,75 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
     console.error('[updateDriver] ❌ ERROR:', error);
     throw error;
   }
+};
+
+export const refreshAccessToken = async (refreshToken: string): Promise<{ access_token: string; refresh_token: string }> => {
+  const response = await fetch(`${BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${refreshToken}`,
+      Accept: 'application/json',
+    },
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    throw new Error(json?.message ?? 'Refresh token failed');
+  }
+
+  return json;
+};
+
+const performTokenRefresh = async () => {
+  const state = store.getState();
+  const refreshToken = state.auth.refreshToken;
+
+  if (!refreshToken) throw new Error('No refresh token available');
+
+  try {
+    const data = await refreshAccessToken(refreshToken);
+    store.dispatch(updateTokens({ accessToken: data.access_token, refreshToken: data.refresh_token }));
+    await storage.set('userToken', data.access_token);
+    await storage.set('refreshToken', data.refresh_token);
+    return data.access_token;
+  } catch (error) {
+    store.dispatch(logout());
+    throw error;
+  }
+};
+
+export const getDriverInfo = async (driverId: string, token: string): Promise<any> => {
+  let currentToken = token;
+  let response = await fetch(`${BASE_URL}/driver/${driverId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${currentToken}`,
+      Accept: 'application/json',
+    },
+  });
+
+  let json = await response.json();
+
+  if (response.status === 401) {
+    try {
+      currentToken = await performTokenRefresh();
+      response = await fetch(`${BASE_URL}/driver/${driverId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          Accept: 'application/json',
+        },
+      });
+      json = await response.json();
+    } catch (refreshError) {
+      throw new Error('Session expired. Please login again.');
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
+  }
+
+  return json;
 };
