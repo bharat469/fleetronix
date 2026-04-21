@@ -24,6 +24,13 @@ import {
 } from '../../assets/svgIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
+import DriverProfileHeader from '../../components/common/DriverProfileHeader';
+import { useUpdateDriver } from '../../hooks/useAuth';
+import { Asset } from 'react-native-image-picker';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertHelper } from '../../components/common/AlertPopup';
+import ImagePickerModal from '../../components/common/ImagePickerModal';
+import { useImageSelection } from '../../helpers/useImageSelection';
 
 const FolderIcon = () => (
   <View style={{ width: 24, height: 24 }}>
@@ -76,9 +83,39 @@ const DocSection = ({ label, fileName, status, statusType, onRemove }: any) => {
 
 const KYCScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
   const { userToken, driverId } = useSelector((state: RootState) => state.auth);
   const { data: driverData } = useDriverInfo(driverId || '', userToken || '');
   const driver = driverData?.data;
+
+  const { mutate: updateDriverProfile, isPending: isUpdating } = useUpdateDriver({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
+      AlertHelper.success('Success', 'Profile picture updated successfully');
+      setIsPickerVisible(false);
+    },
+    onError: (error: any) => {
+      AlertHelper.error('Error', error.message || 'Failed to update profile picture');
+    }
+  });
+
+  const onImageSelected = (asset: Asset) => {
+    if (asset.uri) {
+      updateDriverProfile({
+        driverId: driverId || '',
+        token: userToken || '',
+        data: {
+          driver_photo: {
+            uri: asset.uri,
+            type: asset.type || 'image/jpeg',
+            name: asset.fileName || `profile_${Date.now()}.jpg`,
+          },
+        },
+      });
+    }
+  };
+
+  const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -96,30 +133,14 @@ const KYCScreen = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profilePicWrapper}>
-            <Image
-              source={{ uri: driver?.photo_path || 'https://randomuser.me/api/portraits/men/32.jpg' }}
-              style={styles.profilePic}
-            />
-            <View style={styles.editPicBtn}>
-              <EditPenIcon />
-            </View>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{driver?.full_name || driver?.first_name || 'Driver'}</Text>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: driver?.status === 'available' ? COLORS.greenColor.color1 : '#FF3B30' }]} />
-              <Text style={styles.statusText}>{driver?.status ? driver.status.charAt(0).toUpperCase() + driver.status.slice(1) : 'Available'}</Text>
-            </View>
-            <View style={[styles.kycBadge, { backgroundColor: driver?.kyc_status === 'verified' ? '#E8F5E9' : COLORS.yellowColor.color1 }]}>
-              <Text style={[styles.kycText, { color: driver?.kyc_status === 'verified' ? '#4CAF50' : COLORS.yellowColor.color2 }]}>
-                {driver?.kyc_status ? `KYC ${driver.kyc_status.charAt(0).toUpperCase() + driver.kyc_status.slice(1)}` : 'KYC Pending'}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <DriverProfileHeader
+          driver={driver}
+          imageSize={60}
+          showEditButton={true}
+          isUpdating={isUpdating}
+          onEditPress={() => setIsPickerVisible(true)}
+          containerStyle={styles.profileHeaderContainer}
+        />
 
         <View style={styles.content}>
           <Text style={styles.sectionHeading}>Documents</Text>
@@ -158,6 +179,12 @@ const KYCScreen = () => {
           <Text style={styles.submitBtnText}>Submit</Text>
         </TouchableOpacity>
       </View>
+      <ImagePickerModal
+        isVisible={isPickerVisible}
+        onClose={() => setIsPickerVisible(false)}
+        onCameraPress={takePhoto}
+        onGalleryPress={pickImage}
+      />
     </SafeAreaView>
   );
 };
@@ -189,36 +216,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: verticalScale(100),
   },
-  profileSection: {
-    flexDirection: 'row',
+  profileHeaderContainer: {
     paddingHorizontal: scale(20),
     marginVertical: verticalScale(15),
-    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
     paddingBottom: verticalScale(20),
-  },
-  profilePicWrapper: {
-    position: 'relative',
-  },
-  profilePic: {
-    width: scale(60),
-    height: scale(60),
-    borderRadius: scale(30),
-    backgroundColor: '#F5F5F5',
-  },
-  editPicBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'white',
-    width: scale(20),
-    height: scale(20),
-    borderRadius: scale(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   profileInfo: {
     marginLeft: scale(15),

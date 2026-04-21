@@ -29,6 +29,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, verticalScale, moderateScale, SCREEN } from '../../helpers/dimension';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { useDriverInfo } from '../../hooks/useAuth';
+import { ActivityIndicator } from 'react-native';
 
 
 
@@ -36,6 +40,15 @@ const HomeScreen = () => {
   const { t } = useTranslation();
   const [isEnabled, setIsEnabled] = useState(true);
   const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+
+  const { driverId, userToken } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse, isLoading, isError } = useDriverInfo(
+    driverId || '',
+    userToken || '',
+    !!driverId && !!userToken
+  );
+
+  const driverData = driverResponse?.data;
 
   return (
     <View style={styles.container}>
@@ -55,11 +68,13 @@ const HomeScreen = () => {
           />
           <SafeAreaView style={styles.headerContent}>
             <View style={styles.topRow}>
-              <Text style={styles.timeText}>9:41</Text>
+              <Text ></Text>
               <View style={styles.locationContainer}>
                 <View style={styles.locationTextContainer}>
                   <Text style={styles.currentAddressLabel}>{t('current_address')}</Text>
-                  <Text style={styles.locationText}>Hyderabad, India</Text>
+                  <Text style={styles.locationText}>
+                    {'Hyderabad'}
+                  </Text>
                 </View>
                 <LocationIcon />
               </View>
@@ -67,15 +82,21 @@ const HomeScreen = () => {
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeText}>{t('welcome_upper')}</Text>
               <View style={styles.welcomeUnderline} />
-              <Text style={styles.driverName}>Sahil Kumar</Text>
-              <View style={styles.driverStats}>
-                <Text style={styles.statText}>
-                  {t('driver_id')}: <Text style={styles.statValue}>EXAPR06F52</Text>
-                </Text>
-                <Text style={styles.statText}>
-                  {t('vehicle_number')}: <Text style={styles.statValue}>UK07 EXAP 5254</Text>
-                </Text>
-              </View>
+              {isLoading ? (
+                <ActivityIndicator color="white" style={{ alignSelf: 'flex-start', marginTop: verticalScale(15) }} />
+              ) : (
+                <>
+                  <Text style={styles.driverName}>{driverData?.full_name || driverData?.first_name || 'Driver'}</Text>
+                  <View style={styles.driverStats}>
+                    <Text style={styles.statText}>
+                      {t('driver_id')}: <Text style={styles.statValue}>{driverId || '---'}</Text>
+                    </Text>
+                    <Text style={styles.statText}>
+                      {t('vehicle_number')}: <Text style={styles.statValue}>{driverData?.vehicle_number || '---'}</Text>
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.notificationBtn}>

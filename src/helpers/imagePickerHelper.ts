@@ -7,7 +7,7 @@ import {
 } from 'react-native-image-picker';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 
-export const pickImageFromLibrary = async (options?: ImageLibraryOptions): Promise<ImagePickerResponse> => {
+export const pickImageFromLibrary = async (options?: Partial<ImageLibraryOptions>): Promise<ImagePickerResponse> => {
   const defaultOptions: ImageLibraryOptions = {
     mediaType: 'photo',
     selectionLimit: 1,
@@ -23,7 +23,7 @@ export const pickImageFromLibrary = async (options?: ImageLibraryOptions): Promi
   }
 };
 
-export const takePhoto = async (options?: CameraOptions): Promise<ImagePickerResponse> => {
+export const takePhoto = async (options?: Partial<CameraOptions>): Promise<ImagePickerResponse> => {
   const defaultOptions: CameraOptions = {
     mediaType: 'photo',
     saveToPhotos: true,

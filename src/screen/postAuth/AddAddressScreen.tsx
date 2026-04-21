@@ -28,6 +28,13 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from 'react-native-geolocation-service';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
+import DriverProfileHeader from '../../components/common/DriverProfileHeader';
+import { useUpdateDriver } from '../../hooks/useAuth';
+import { Asset } from 'react-native-image-picker';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertHelper } from '../../components/common/AlertPopup';
+import ImagePickerModal from '../../components/common/ImagePickerModal';
+import { useImageSelection } from '../../helpers/useImageSelection';
 
 const { width } = Dimensions.get('window');
 
@@ -46,9 +53,39 @@ const TargetIcon = () => (
 
 const AddAddressScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
   const { userToken, driverId } = useSelector((state: RootState) => state.auth);
   const { data: driverData } = useDriverInfo(driverId || '', userToken || '');
   const driver = driverData?.data;
+
+  const { mutate: updateDriverProfile, isPending: isUpdating } = useUpdateDriver({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
+      AlertHelper.success('Success', 'Profile picture updated successfully');
+      setIsPickerVisible(false);
+    },
+    onError: (error: any) => {
+      AlertHelper.error('Error', error.message || 'Failed to update profile picture');
+    }
+  });
+
+  const onImageSelected = (asset: Asset) => {
+    if (asset.uri) {
+      updateDriverProfile({
+        driverId: driverId || '',
+        token: userToken || '',
+        data: {
+          driver_photo: {
+            uri: asset.uri,
+            type: asset.type || 'image/jpeg',
+            name: asset.fileName || `profile_${Date.now()}.jpg`,
+          },
+        },
+      });
+    }
+  };
+
+  const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
   const [region, setRegion] = useState({
     latitude: 37.78825,
@@ -114,30 +151,14 @@ const AddAddressScreen = () => {
           <SearchIcon />
         </TouchableOpacity>
       </View>
-      {/* Profile Section */}
-      <View style={styles.profileSection}>
-        <View style={styles.profilePicWrapper}>
-          <Image
-            source={{ uri: driver?.photo_path || 'https://randomuser.me/api/portraits/men/32.jpg' }}
-            style={styles.profilePic}
-          />
-          <View style={styles.editPicBtn}>
-            <EditPenIcon />
-          </View>
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.userName}>{driver?.full_name || driver?.first_name || 'Driver'}</Text>
-          <View style={styles.statusRow}>
-            <View style={[styles.statusDot, { backgroundColor: driver?.status === 'available' ? COLORS.greenColor.color1 : '#FF3B30' }]} />
-            <Text style={styles.statusText}>{driver?.status ? driver.status.charAt(0).toUpperCase() + driver.status.slice(1) : 'Available'}</Text>
-          </View>
-          <View style={[styles.kycBadge, { backgroundColor: driver?.kyc_status === 'verified' ? '#E8F5E9' : COLORS.yellowColor.color1 }]}>
-            <Text style={[styles.kycText, { color: driver?.kyc_status === 'verified' ? '#4CAF50' : COLORS.yellowColor.color2 }]}>
-              {driver?.kyc_status ? `KYC ${driver.kyc_status.charAt(0).toUpperCase() + driver.kyc_status.slice(1)}` : 'KYC Pending'}
-            </Text>
-          </View>
-        </View>
-      </View>
+      <DriverProfileHeader
+        driver={driver}
+        imageSize={60}
+        showEditButton={true}
+        isUpdating={isUpdating}
+        onEditPress={() => setIsPickerVisible(true)}
+        containerStyle={{ paddingHorizontal: scale(20), marginVertical: verticalScale(10) }}
+      />
 
       {/* Add Addresses Button */}
       <TouchableOpacity
@@ -194,6 +215,12 @@ const AddAddressScreen = () => {
           <Text style={styles.submitBtnText}>Enter Complete Address</Text>
         </TouchableOpacity>
       </View>
+      <ImagePickerModal
+        isVisible={isPickerVisible}
+        onClose={() => setIsPickerVisible(false)}
+        onCameraPress={takePhoto}
+        onGalleryPress={pickImage}
+      />
     </SafeAreaView>
   );
 };
@@ -218,34 +245,6 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(18),
     fontWeight: '600',
     color: COLORS.textColor.color5,
-  },
-  profileSection: {
-    flexDirection: 'row',
-    paddingHorizontal: scale(20),
-    marginVertical: verticalScale(10),
-    alignItems: 'center',
-  },
-  profilePicWrapper: {
-    position: 'relative',
-  },
-  profilePic: {
-    width: scale(60),
-    height: scale(60),
-    borderRadius: scale(30),
-    backgroundColor: '#F5F5F5',
-  },
-  editPicBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'white',
-    width: scale(20),
-    height: scale(20),
-    borderRadius: scale(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   profileInfo: {
     marginLeft: scale(15),

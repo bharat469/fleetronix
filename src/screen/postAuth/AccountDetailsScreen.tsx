@@ -20,7 +20,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useDriverInfo, useUpdateDriver } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import { Asset } from 'react-native-image-picker';
+import { pickImageFromLibrary, takePhoto as takePhotoHelper } from '../../helpers/imagePickerHelper';
 import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import { AlertHelper } from '../../components/common/AlertPopup';
@@ -36,6 +37,10 @@ import {
   ChevronRightIcon,
 } from '../../assets/svgIcons';
 import SvgIcon from '../../helpers/svgComponents';
+import DriverProfileHeader from '../../components/common/DriverProfileHeader';
+import { resolveImageUrl } from '../../helpers/urlHelper';
+import ImagePickerModal from '../../components/common/ImagePickerModal';
+import { useImageSelection } from '../../helpers/useImageSelection';
 
 const InputField = ({ label, value, onChangeText, keyboardType = 'default', prefix = '', errorKey, errors, setErrors }: any) => (
   <View style={styles.inputContainer}>
@@ -95,6 +100,35 @@ const AccountDetailsScreen = () => {
 
   const { data: driverData, isLoading } = useDriverInfo(driverId || '', userToken || '');
   const driver = driverData?.data;
+
+  const { mutate: updateDriverProfile, isPending: isUpdatingProfilePic } = useUpdateDriver({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
+      AlertHelper.success('Success', 'Profile picture updated successfully');
+      setIsPickerVisible(false);
+    },
+    onError: (error: any) => {
+      AlertHelper.error('Error', error.message || 'Failed to update profile picture');
+    }
+  });
+
+  const onImageSelected = (asset: Asset) => {
+    if (asset.uri) {
+      updateDriverProfile({
+        driverId: driverId || '',
+        token: userToken || '',
+        data: {
+          driver_photo: {
+            uri: asset.uri,
+            type: asset.type || 'image/jpeg',
+            name: asset.fileName || `profile_${Date.now()}.jpg`,
+          },
+        },
+      });
+    }
+  };
+
+  const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
   const { mutate: updateProfile, isPending: isUpdating } = useUpdateDriver({
     onSuccess: () => {
@@ -181,41 +215,43 @@ const AccountDetailsScreen = () => {
     );
   };
 
+  const removeDoc = (docKey: keyof typeof documents) => {
+    setDocuments((prev: any) => ({ ...prev, [docKey]: '' }));
+  };
+
 
 
   const handlePickImage = (docKey: keyof typeof documents) => {
-    // Note: handlePickImage uses a custom Alert with 3 buttons (Camera/Gallery/Cancel).
-    // Our AlertHelper currently supports only 2 buttons for confirm.
-    // For now, I'll keep this as standard Alert OR update AlertHelper.
-    // Given the request, I'll keep this one as standard if I want to maintain 3 buttons, 
-    // OR change it to a simpler confirm UI.
-    // I will keep it as standard Alert for now because 3-option alerts are specific to pickers.
-    // Update: I will convert it to a 2-step process or just leave it for now if focus is on Success/Error.
-    
     Alert.alert(
       'Upload Document',
       'Select the source for your document image',
       [
         {
           text: 'Camera',
-          onPress: () => {
-            launchCamera({ mediaType: 'photo', quality: 0.8 }, (response) => {
+          onPress: async () => {
+            try {
+              const response = await takePhotoHelper({ quality: 0.8 });
               if (response.assets && response.assets.length > 0) {
                 setDocuments((prev: any) => ({ ...prev, [docKey]: response.assets![0] }));
                 setErrors((prev: any) => ({ ...prev, [docKey]: null }));
               }
-            });
+            } catch (error) {
+              console.error('Take photo error:', error);
+            }
           },
         },
         {
           text: 'Gallery',
-          onPress: () => {
-            launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (response) => {
+          onPress: async () => {
+            try {
+              const response = await pickImageFromLibrary({ quality: 0.8 });
               if (response.assets && response.assets.length > 0) {
                 setDocuments((prev: any) => ({ ...prev, [docKey]: response.assets![0] }));
                 setErrors((prev: any) => ({ ...prev, [docKey]: null }));
               }
-            });
+            } catch (error) {
+              console.error('Pick image error:', error);
+            }
           },
         },
         {
@@ -239,9 +275,9 @@ const AccountDetailsScreen = () => {
       if (formData.lastName !== (driver?.last_name || '')) {
         changedData.last_name = formData.lastName;
       }
-      // if (formData.email !== (driver?.email || '')) {
-      //   changedData.email = formData.email;
-      // }
+      if (formData.email !== (driver?.email || '')) {
+        changedData.email = formData.email;
+      }
       if (formData.mobile !== (driver?.phone_number || '')) {
         changedData.phone_number = formData.mobile;
       }
@@ -292,30 +328,14 @@ const AccountDetailsScreen = () => {
         style={{ flex: 1 }}
       >
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            <View style={styles.profilePicWrapper}>
-              <Image
-                source={{ uri: driver?.photo_path || 'https://randomuser.me/api/portraits/men/32.jpg' }}
-                style={styles.profilePic}
-              />
-              <TouchableOpacity style={styles.editPicBtn}>
-                <EditPenIcon />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{driver?.full_name || driver?.first_name || 'Driver'}</Text>
-              <View style={styles.statusRow}>
-                <View style={[styles.statusDot, { backgroundColor: driver?.status === 'available' ? COLORS.greenColor.color1 : '#FF3B30' }]} />
-                <Text style={styles.statusText}>{driver?.status ? driver.status.charAt(0).toUpperCase() + driver.status.slice(1) : 'Available'}</Text>
-              </View>
-              <View style={[styles.kycBadge, { backgroundColor: driver?.kyc_status === 'verified' ? '#E8F5E9' : COLORS.yellowColor.color1 }]}>
-                <Text style={[styles.kycText, { color: driver?.kyc_status === 'verified' ? '#4CAF50' : COLORS.yellowColor.color2 }]}>
-                  {driver?.kyc_status ? `KYC ${driver.kyc_status.charAt(0).toUpperCase() + driver.kyc_status.slice(1)}` : 'KYC Pending'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <DriverProfileHeader
+            driver={driver}
+            imageSize={70}
+            showEditButton={true}
+            isUpdating={isUpdatingProfilePic}
+            onEditPress={() => setIsPickerVisible(true)}
+            containerStyle={{ marginVertical: verticalScale(20) }}
+          />
 
           {/* Dynamic Address Section */}
           {!driver?.address ? (
@@ -465,6 +485,13 @@ const AccountDetailsScreen = () => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ImagePickerModal
+        isVisible={isPickerVisible}
+        onClose={() => setIsPickerVisible(false)}
+        onCameraPress={takePhoto}
+        onGalleryPress={pickImage}
+      />
     </SafeAreaView>
   );
 };
@@ -497,72 +524,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: scale(20),
     paddingBottom: verticalScale(30),
-  },
-  profileSection: {
-    flexDirection: 'row',
-    marginVertical: verticalScale(20),
-    alignItems: 'center',
-  },
-  profilePicWrapper: {
-    position: 'relative',
-  },
-  profilePic: {
-    width: scale(70),
-    height: scale(70),
-    borderRadius: scale(35),
-    backgroundColor: '#F5F5F5',
-  },
-  editPicBtn: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'white',
-    width: scale(24),
-    height: scale(24),
-    borderRadius: scale(12),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    elevation: 2,
-  },
-  profileInfo: {
-    marginLeft: scale(20),
-  },
-  userName: {
-    fontSize: moderateScale(18),
-    fontWeight: '700',
-    color: COLORS.textColor.color5,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: verticalScale(4),
-  },
-  statusDot: {
-    width: scale(10),
-    height: scale(10),
-    borderRadius: scale(5),
-    backgroundColor: COLORS.greenColor.color1,
-    marginRight: scale(8),
-  },
-  statusText: {
-    fontSize: moderateScale(14),
-    color: COLORS.textColor.color2.one,
-    fontWeight: '500',
-  },
-  kycBadge: {
-    backgroundColor: COLORS.yellowColor.color1,
-    paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(2),
-    borderRadius: scale(10),
-    marginTop: verticalScale(6),
-    alignSelf: 'flex-start',
-  },
-  kycText: {
-    fontSize: moderateScale(12),
-    color: COLORS.yellowColor.color2,
-    fontWeight: '600',
   },
   addressCard: {
     backgroundColor: 'rgba(255, 245, 245, 0.5)',
