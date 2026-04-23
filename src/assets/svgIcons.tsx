@@ -171,3 +171,16 @@ export const GalleryIcon = (props: SvgProps) => (
     <Path d="M21 15L16 10L5 21" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
+
+export const PhoneIcon = (props: SvgProps) => (
+  <Svg width={props.width || 20} height={props.height || 20} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M22 16.92V19.92C22 20.4504 21.7893 20.9591 21.4142 21.3342C21.0391 21.7093 20.5304 21.92 20 21.92C18.2309 21.92 16.5057 21.5794 14.89 20.92C13.3852 20.3204 12.0152 19.4623 10.84 18.39C9.72145 17.2625 8.79093 15.9392 8.1 14.49C7.43343 12.9163 7.07844 11.2334 7.05 9.52C7.05 9.00696 7.2514 8.51493 7.61085 8.15236C7.9703 7.78979 8.45783 7.586 8.97 7.58H11.97C12.4419 7.5765 12.8718 7.84882 13.0729 8.27718C13.2739 8.70554 13.2125 9.21591 12.916 9.58431L11.666 11.1443C12.33 12.3384 13.3134 13.3513 14.47 14.04L16.03 12.79C16.3986 12.4933 16.9094 12.4319 17.3377 12.633C17.7661 12.834 18.0383 13.2642 18.035 13.736V16.736C18.035 17.234 17.8373 17.7116 17.4856 18.0632C17.1339 18.4149 16.6563 18.6127 16.1583 18.6127L16.1583 18.6127" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+export const ProfileIcon = (props: SvgProps) => (
+  <Svg width={props.width || 24} height={props.height || 24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Circle cx="12" cy="12" r="10" stroke={props.color || "#000"} strokeWidth="1.5" />
+    <Path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" stroke={props.color || "#000"} strokeWidth="1.5" />
+    <Path d="M6 18C6 15.7909 8.68629 14 12 14C15.3137 14 18 15.7909 18 18" stroke={props.color || "#000"} strokeWidth="1.5" strokeLinecap="round" />
+  </Svg>
+);

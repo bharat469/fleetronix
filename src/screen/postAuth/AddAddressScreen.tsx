@@ -35,8 +35,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertHelper } from '../../components/common/AlertPopup';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { useImageSelection } from '../../helpers/useImageSelection';
+import { useReverseGeocode } from '../../hooks/useGeocoding';
 
-const { width } = Dimensions.get('window');
+
 
 const PlusIcon = () => (
   <View style={{ width: 14, height: 14, justifyContent: 'center', alignItems: 'center' }}>
@@ -88,11 +89,34 @@ const AddAddressScreen = () => {
   const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
   const [region, setRegion] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
+    latitude: 30.3165, // Default to a central location if needed
+    longitude: 78.0322,
+    latitudeDelta: 0.0122,
+    longitudeDelta: 0.0121,
   });
+
+  const [address, setAddress] = useState('Fetching current address...');
+  const [addressTitle, setAddressTitle] = useState('Loading...');
+
+  const { mutate: getAddress, isPending: isGeocoding } = useReverseGeocode({
+    onSuccess: (data) => {
+      if (data) {
+        setAddress(data);
+        const parts = data.split(',');
+        setAddressTitle(parts[0] || 'Unknown Location');
+      }
+    },
+    onError: (error) => {
+      console.error('[AddAddressScreen] Geocoding Error:', error);
+      setAddressTitle('Address Error');
+      setAddress('Could not fetch address details');
+    }
+  });
+
+  const handleRegionChangeComplete = (newRegion: any) => {
+    setRegion(newRegion);
+    getAddress({ lat: newRegion.latitude, lng: newRegion.longitude });
+  };
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -101,10 +125,14 @@ const AddAddressScreen = () => {
     }
 
     if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
+      const granted = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      return (
+        granted['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED ||
+        granted['android.permission.ACCESS_COARSE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED
       );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
     return false;
   };
@@ -119,12 +147,14 @@ const AddAddressScreen = () => {
 
       Geolocation.getCurrentPosition(
         (position) => {
-          setRegion({
+          const newRegion = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
-          });
+          };
+          setRegion(newRegion);
+          getAddress({ lat: position.coords.latitude, lng: position.coords.longitude });
         },
         (error) => {
           console.log('[Geolocation Error]', error.code, error.message);
@@ -135,6 +165,16 @@ const AddAddressScreen = () => {
     } catch (err) {
       console.error('[getCurrentLocation] Error:', err);
     }
+  };
+
+  const handleEnterAddress = () => {
+    navigation.navigate('EnterAddress', {
+      initialAddress: address,
+      coordinates: {
+        latitude: region.latitude,
+        longitude: region.longitude
+      }
+    });
   };
 
   return (
@@ -179,7 +219,7 @@ const AddAddressScreen = () => {
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           region={region}
-          onRegionChangeComplete={setRegion}
+          onRegionChangeComplete={handleRegionChangeComplete}
         >
           <Marker
             coordinate={{ latitude: region.latitude, longitude: region.longitude }}
@@ -203,14 +243,14 @@ const AddAddressScreen = () => {
 
       {/* Bottom Address Card */}
       <View style={styles.bottomCard}>
-        <Text style={styles.locationTitle}>Sankarpur</Text>
-        <Text style={styles.locationSubtitle}>
-          23 Milestone, NH-07, Chakrata Rd, Shankarpur, Uttarakhand 248197
+        <Text style={styles.locationTitle}>{addressTitle}</Text>
+        <Text style={styles.locationSubtitle} numberOfLines={2}>
+          {isGeocoding ? 'Fetching address detail...' : address}
         </Text>
         <TouchableOpacity
           style={styles.submitBtn}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('EnterAddress', {})}
+          onPress={handleEnterAddress}
         >
           <Text style={styles.submitBtnText}>Enter Complete Address</Text>
         </TouchableOpacity>

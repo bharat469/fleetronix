@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useDriverInfo } from '../../hooks/useAuth';
@@ -37,11 +37,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { useImageSelection } from '../../helpers/useImageSelection';
 
-const HouseIcon = () => (
-  <View style={{ width: scale(20), height: scale(20), justifyContent: 'center', alignItems: 'center' }}>
-    <LocationIcon color="#424242" width={20} height={20} />
-  </View>
-);
+
 
 const AreaIcon = () => (
   <View style={{ width: scale(20), height: scale(20), borderWidth: 1, borderColor: '#424242', borderStyle: 'dashed', borderRadius: 4 }} />
@@ -49,7 +45,7 @@ const AreaIcon = () => (
 
 const EnterAddressScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const route = useRoute<any>();
+  const route = useRoute<RouteProp<RootStackParamList, 'EnterAddress'>>();
   const queryClient = useQueryClient();
   const { userToken, driverId } = useSelector((state: RootState) => state.auth);
   const { data: driverData, refetch } = useDriverInfo(driverId || '', userToken || '');
@@ -101,7 +97,31 @@ const EnterAddressScreen = () => {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    if (driver?.address) {
+    // Priority 1: Data passed from AddAddressScreen (Selected on map)
+    if (route.params?.initialAddress) {
+      const fullAddress = route.params.initialAddress;
+      const parts = fullAddress.split(',').map((p: string) => p.trim());
+      
+      // Extract pincode using a more robust regex that searches the entire string
+      const pincodeMatch = fullAddress.match(/\b\d{6}\b/);
+      
+      setFormData({
+        houseNo: parts[0] || '',
+        area: parts[1] || '',
+        landmark: parts.length > 3 ? parts[2] : '',
+        pincode: pincodeMatch ? pincodeMatch[0] : '',
+      });
+
+      if (route.params.coordinates) {
+        setRegion({
+          ...region,
+          latitude: route.params.coordinates.latitude,
+          longitude: route.params.coordinates.longitude,
+        });
+      }
+    }
+    // Priority 2: Existing driver data from API
+    else if (driver?.address) {
       const parts = driver.address.split(', ');
       if (parts.length >= 3) {
         setFormData({
@@ -112,7 +132,7 @@ const EnterAddressScreen = () => {
         });
       }
     }
-  }, [driver]);
+  }, [driver, route.params]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -176,18 +196,7 @@ const EnterAddressScreen = () => {
           containerStyle={{ paddingHorizontal: scale(20), marginVertical: verticalScale(10), marginBottom: verticalScale(30) }}
         />
 
-        {/* Add Addresses Button (Mockup as in SS) */}
-        {/* <TouchableOpacity
-          style={styles.addAddressBtn}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('EnterAddress', {})}
-        >
-          <View style={styles.addAddressContent}>
-            <PlusIcon />
-            <Text style={styles.addAddressText}>Add Addresses</Text>
-          </View>
-          <ChevronRightIcon />
-        </TouchableOpacity> */}
+
 
         {/* Map Preview Section */}
         <View style={styles.mapPreviewContainer}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -32,14 +32,18 @@ import { scale, verticalScale, moderateScale, SCREEN } from '../../helpers/dimen
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useDriverInfo } from '../../hooks/useAuth';
-import { ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { ActivityIndicator, PermissionsAndroid, Platform, Alert } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+import { useReverseGeocode } from '../../hooks/useGeocoding';
 
 
 
 const HomeScreen = () => {
   const { t } = useTranslation();
-  const [isEnabled, setIsEnabled] = useState(true);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const { driverId, userToken } = useSelector((state: RootState) => state.auth);
   const { data: driverResponse, isLoading, isError } = useDriverInfo(
@@ -48,7 +52,72 @@ const HomeScreen = () => {
     !!driverId && !!userToken
   );
 
+  const [isEnabled, setIsEnabled] = useState(true);
+  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+
   const driverData = driverResponse?.data;
+  const [currentAddress, setCurrentAddress] = useState('Detecting...');
+
+  const { mutateAsync: getAddress } = useReverseGeocode();
+
+  useEffect(() => {
+    handleLocationFetch();
+  }, []);
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      return (
+        granted['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED ||
+        granted['android.permission.ACCESS_COARSE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED
+      );
+    }
+    return true;
+  };
+
+  const handleLocationFetch = async () => {
+    try {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setCurrentAddress('Location denied');
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const address = await getAddress({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+            if (address) {
+              const parts = address.split(',').map(p => p.trim());
+
+              const city = parts.length >= 3 ? parts[parts.length - 3] : parts[0];
+              setCurrentAddress(city || 'Unknown');
+            }
+          } catch (err) {
+            console.log('Geocoding error:', err);
+            setCurrentAddress('Address error');
+          }
+        },
+        (error) => {
+          console.log('[Location Error]:', error.code, error.message);
+          setCurrentAddress('Location error');
+        },
+        {
+          enableHighAccuracy: false, // Much faster as it uses WiFi/Cell instead of GPS satellites
+          timeout: 10000,
+          maximumAge: 60000 // Use a location cached in the last minute for instant loading
+        }
+      );
+    } catch (err) {
+      console.log('[Location Fetch Catch]:', err);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -73,7 +142,7 @@ const HomeScreen = () => {
                 <View style={styles.locationTextContainer}>
                   <Text style={styles.currentAddressLabel}>{t('current_address')}</Text>
                   <Text style={styles.locationText}>
-                    {'Hyderabad'}
+                    {currentAddress}
                   </Text>
                 </View>
                 <LocationIcon />
@@ -122,12 +191,14 @@ const HomeScreen = () => {
               subtitle={t('trip_card_desc')}
               Icon={TruckIcon}
               iconBgColor="rgba(255, 107, 0, 0.1)"
+              onPress={() => navigation.navigate('NewTripLocation')}
             />
             <ActionCard
               title={t('all_trips')}
               subtitle={t('trip_card_desc')}
               Icon={SignpostIcon}
               iconBgColor="rgba(255, 0, 255, 0.1)"
+              onPress={() => navigation.navigate('AllLoads')}
             />
             <ActionCard
               title={t('expenses')}

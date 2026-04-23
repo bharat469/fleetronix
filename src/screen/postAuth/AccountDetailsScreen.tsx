@@ -38,7 +38,7 @@ import {
 } from '../../assets/svgIcons';
 import SvgIcon from '../../helpers/svgComponents';
 import DriverProfileHeader from '../../components/common/DriverProfileHeader';
-import { resolveImageUrl } from '../../helpers/urlHelper';
+
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { useImageSelection } from '../../helpers/useImageSelection';
 

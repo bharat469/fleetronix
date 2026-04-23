@@ -22,6 +22,20 @@ import AddAddressScreen from '../screen/postAuth/AddAddressScreen';
 import EnterAddressScreen from '../screen/postAuth/EnterAddressScreen';
 import KYCScreen from '../screen/postAuth/KYCScreen';
 import StatusScreen from '../screen/postAuth/StatusScreen';
+import NewTripLocationScreen from '../screen/postAuth/newTrip/NewTripLocationScreen';
+import NewTripDateScreen from '../screen/postAuth/newTrip/NewTripDateScreen';
+import NewTripPreferencesScreen from '../screen/postAuth/newTrip/NewTripPreferencesScreen';
+import SearchingTruckScreen from '../screen/postAuth/newTrip/SearchingTruckScreen';
+import NegotiationZoneScreen from '../screen/postAuth/newTrip/NegotiationZoneScreen';
+import AllLoadsScreen from '../screen/postAuth/newTrip/AllLoadsScreen';
+
+import AvailableJobsScreen from '../screen/postAuth/newTrip/AvailableJobsScreen';
+import TripDetailsScreen from '../screen/postAuth/newTrip/TripDetailsScreen';
+import StartTripScreen from '../screen/postAuth/newTrip/StartTripScreen';
+import ConfirmDeliveryScreen from '../screen/postAuth/newTrip/ConfirmDeliveryScreen';
+import RatingScreen from '../screen/postAuth/newTrip/RatingScreen';
+import CongratulationsScreen from '../screen/postAuth/newTrip/CongratulationsScreen';
+import FeedbackScreen from '../screen/postAuth/newTrip/FeedbackScreen';
 import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './types';
 
@@ -99,6 +113,20 @@ export const RootNavigator = () => {
           <Stack.Screen name="EnterAddress" component={EnterAddressScreen} />
           <Stack.Screen name="KYC" component={KYCScreen} />
           <Stack.Screen name="Status" component={StatusScreen} />
+          <Stack.Screen name="NewTripLocation" component={NewTripLocationScreen} />
+          <Stack.Screen name="NewTripDate" component={NewTripDateScreen} />
+          <Stack.Screen name="NewTripPreferences" component={NewTripPreferencesScreen} />
+          <Stack.Screen name="SearchingTruck" component={SearchingTruckScreen} />
+          <Stack.Screen name="NegotiationZone" component={NegotiationZoneScreen} />
+          <Stack.Screen name="AllLoads" component={AllLoadsScreen} />
+
+          <Stack.Screen name="AvailableJobs" component={AvailableJobsScreen} />
+          <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+          <Stack.Screen name="StartTrip" component={StartTripScreen} />
+          <Stack.Screen name="ConfirmDelivery" component={ConfirmDeliveryScreen} />
+          <Stack.Screen name="Rating" component={RatingScreen} />
+          <Stack.Screen name="Congratulations" component={CongratulationsScreen} />
+          <Stack.Screen name="Feedback" component={FeedbackScreen} />
         </Stack.Group>
       )}
     </Stack.Navigator>
