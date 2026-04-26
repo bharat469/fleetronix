@@ -8,7 +8,6 @@ import {
   StatusBar,
   Image,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -18,29 +17,42 @@ import { BackArrowIcon, PhoneIcon, LocationIcon } from '../../../assets/svgIcons
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
-
 import { useTripDetails } from '../../../hooks/useTripDetails';
+import { ActivityIndicator } from 'react-native';
+
+
 
 const TripDetailsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TripDetails'>>();
-  const { tripId, loadNumber } = route.params;
 
-  const { data: trip, isLoading, isError, error, refetch } = useTripDetails(tripId);
+  const { tripId, loadNumber } = route.params || { tripId: '69e5fa1075ff18906134d252', loadNumber: '283492' };
+
+  const { data: trip, isLoading, error, refetch } = useTripDetails(tripId);
+
+  // Log the result as requested
+  React.useEffect(() => {
+    if (trip) {
+      console.log('[TripDetailsScreen] API Result:', JSON.stringify(trip, null, 2));
+    }
+    // if (error) {
+    //   console.error('[TripDetailsScreen] API Error:', error);
+    // }
+  }, [trip, error]);
 
   if (isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading trip details...</Text>
+        <Text style={styles.loadingText}>Fetching trip details...</Text>
       </View>
     );
   }
 
-  if (isError || !trip) {
+  if (error || !trip) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>{(error as any)?.message || 'Failed to load details'}</Text>
+        <Text style={styles.errorText}>{error instanceof Error ? error.message : 'Failed to load trip details'}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
@@ -106,10 +118,10 @@ const TripDetailsScreen = () => {
           <Text style={styles.boxTitle}>Truck info</Text>
           <TableInfoRow label="Vehicle Number" value={trip.vehicle_number || 'N/A'} />
           <TableInfoRow label="Owner Name" value={trip.owner_name || 'Fleetronix'} />
-          <TableInfoRow label="Driver Name" value={trip.driver_name} />
+          <TableInfoRow label="Driver Name" value={trip.driver_name || 'N/A'} />
           <TableInfoRow label="Driver Mobile" value={trip.driver_mobile || 'N/A'} />
-          <TableInfoRow label="Status" value={trip.status} />
-          <TableInfoRow label="Assigned At" value={trip.assigned_at} />
+          <TableInfoRow label="Status" value={trip.status || 'N/A'} />
+          <TableInfoRow label="Assigned At" value={trip.assigned_at || 'N/A'} />
         </View>
 
         {/* Map Section */}
@@ -161,14 +173,14 @@ const TripDetailsScreen = () => {
           <Text style={styles.sectionTitle}>Financials</Text>
         </View>
         <View style={styles.basisCard}>
-          <BasisRow label="Total trip estimate" value={`Rs ${trip.trip_estimate}`} />
+          <BasisRow label="Total trip estimate" value={`Rs ${trip.trip_estimate || trip.estimate || '0'}`} />
           <BasisHeader title="Location Details" />
-          <BasisRow label="From" value={trip.pickup_city} />
-          <BasisRow label="To" value={trip.drop_city} />
+          <BasisRow label="From" value={trip.pickup_city || trip.pickup} />
+          <BasisRow label="To" value={trip.drop_city || trip.drop} />
 
           <BasisHeader title="Schedule" />
-          <BasisRow label="Assigned At" value={trip.assigned_at} />
-          <BasisRow label="Est. Delivery" value={trip.estimated_delivery} />
+          <BasisRow label="Assigned At" value={trip.assigned_at || 'N/A'} />
+          <BasisRow label="Est. Delivery" value={trip.estimated_delivery || 'N/A'} />
         </View>
 
         {/* Start Button */}

@@ -14,7 +14,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { store } from './src/redux/store';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Only retry once on failure to keep logs clean
+      staleTime: 1000 * 60 * 5, // 5 minutes global cache time
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Initialize i18n
 import './src/i18n';

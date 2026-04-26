@@ -11,12 +11,16 @@ const BASE_URL = Config.API_BASE_URL;
  */
 const performTokenRefresh = async () => {
   const state = store.getState();
-  const refreshToken = state.auth.refreshToken;
+  // Sanitize token: remove quotes and whitespace
+  const refreshToken = (state.auth.refreshToken || '').trim().replace(/^"|"$/g, '');
 
   if (!refreshToken) throw new Error('No refresh token available');
 
   try {
-    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+    const url = `${BASE_URL}/auth/refresh`;
+    console.log(`[${new Date().toLocaleTimeString()}] [tripApi] Refreshing Token...`);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${refreshToken}`,
@@ -24,8 +28,17 @@ const performTokenRefresh = async () => {
       },
     });
 
-    const json = await response.json();
-    if (!response.ok) throw new Error(json?.message ?? 'Refresh token failed');
+    const text = await response.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Refresh failed: Server returned non-JSON (${response.status})`);
+    }
+
+    if (!response.ok) {
+      throw new Error(json?.message ?? 'Refresh token failed');
+    }
 
     const accessToken = json.access_token || json.accessToken;
     const newRefreshToken = json.refresh_token || json.refreshToken;
@@ -40,9 +53,45 @@ const performTokenRefresh = async () => {
 
     return accessToken;
 
-  } catch (error) {
+  } catch (error: any) {
+    console.error(`[${new Date().toLocaleTimeString()}] [tripApi] Token Refresh Failed:`, error.message);
     store.dispatch(logout());
     throw error;
+  }
+};
+
+/**
+ * Centralized fetcher with sanitization and error handling
+ */
+const apiFetch = async (url: string, token: string): Promise<Response> => {
+  const cleanToken = (token || '').trim().replace(/^"|"$/g, '');
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${cleanToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+    return response;
+  } catch (err: any) {
+    console.error(`[${new Date().toLocaleTimeString()}] [tripApi] Network Exception for ${url}:`, err.message);
+    throw new Error(`Network Error: ${err.message}. Check your connectivity.`);
+  }
+};
+
+/**
+ * Safely parse JSON or handle HTML error pages
+ */
+const safeParseJson = async (response: Response) => {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error(`[${new Date().toLocaleTimeString()}] [tripApi] Parse Error. Status: ${response.status}`);
+    throw new Error(`Server returned status ${response.status} but not valid JSON.`);
   }
 };
 
@@ -51,46 +100,29 @@ const performTokenRefresh = async () => {
  */
 export const fetchTrips = async ({ filter, page, per_page }: TripParams): Promise<TripResponse> => {
   const state = store.getState();
-  let token = state.auth.userToken || '';
-
-
-
-
+  const token = state.auth.userToken || '';
 
   const url = `${BASE_URL}/driver/trips/?filter=${filter}&page=${page}&per_page=${per_page}`;
-  console.log('[tripApi] URL:', url);
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] GET Trips List`);
 
-  const makeRequest = async (tokenToUse: string) => {
-    return fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${tokenToUse}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-  };
+  let response = await apiFetch(url, token);
 
-  let response = await makeRequest(token);
-  console.log('[tripApi] Status:', response.status);
-
-
-  // Handle 401 Unauthorized (Token expired)
   if (response.status === 401) {
     try {
       const newToken = await performTokenRefresh();
-      response = await makeRequest(newToken);
+      response = await apiFetch(url, newToken);
     } catch (refreshError) {
       throw new Error('Session expired. Please login again.');
     }
   }
 
-  const json = await response.json();
+  const json = await safeParseJson(response);
 
   if (!response.ok) {
     throw new Error(json?.message ?? `Request failed with status ${response.status}`);
   }
 
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] Trips List Success`);
   return json as TripResponse;
 };
 
@@ -99,51 +131,32 @@ export const fetchTrips = async ({ filter, page, per_page }: TripParams): Promis
  */
 export const fetchTripById = async (tripId: string): Promise<any> => {
   const state = store.getState();
-  let token = state.auth.userToken || '';
-
-
-  console.log('[tripApi] Fetching trip:', tripId);
-  console.log('[tripApi] Token:', token ? `${token.substring(0, 10)}...` : 'MISSING');
+  const token = state.auth.userToken || '';
 
   const url = `${BASE_URL}/driver/trips/${tripId}`;
-  console.log('[tripApi] URL:', url);
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] GET Trip Detail:`, tripId);
 
-  const makeRequest = async (tokenToUse: string) => {
-    return fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${tokenToUse}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
-  };
-
-  let response;
-  try {
-    response = await makeRequest(token);
-    console.log('[tripApi] Status:', response.status);
-  } catch (err) {
-    console.error('[tripApi] Fetch Error:', err);
-    throw err;
-  }
-
+  let response = await apiFetch(url, token);
 
   if (response.status === 401) {
     try {
       const newToken = await performTokenRefresh();
-      response = await makeRequest(newToken);
+      response = await apiFetch(url, newToken);
     } catch (refreshError) {
       throw new Error('Session expired. Please login again.');
     }
   }
 
-  const json = await response.json();
+  const json = await safeParseJson(response);
 
   if (!response.ok) {
     throw new Error(json?.message ?? `Request failed with status ${response.status}`);
   }
 
-  return json.data; // Assuming data contains the trip object
-};
+  if (!json.data) {
+    console.warn(`[${new Date().toLocaleTimeString()}] [tripApi] API returned success but no data property`);
+  }
 
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] Trip Detail Success`);
+  return json.data; 
+};
