@@ -19,17 +19,17 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
       activeOpacity={0.8}
       onPress={() => onPress?.(trip)}
     >
-      <Text style={styles.loadId}>Load Id - #{trip.load_id}</Text>
+      <Text style={styles.loadId}>Load Id - #{trip.load_number || trip.load_id || trip.trip_number}</Text>
 
       <View style={styles.mainContent}>
         <View style={styles.profileSection}>
           <View style={styles.imageWrapper}>
-            {!!trip.driver_photo_url ? (
+            {!!(trip.driver_photo_url || trip.image) ? (
               <Image
                 source={{
-                  uri: (trip.driver_photo_url as string).startsWith('http')
-                    ? trip.driver_photo_url
-                    : `${Config.IMAGE_BASE_URL}${trip.driver_photo_url}`
+                  uri: String(trip.driver_photo_url || trip.image).startsWith('http')
+                    ? (trip.driver_photo_url || trip.image)
+                    : `${Config.IMAGE_BASE_URL}${trip.driver_photo_url || trip.image}`
                 }}
                 style={styles.profileImage}
               />
@@ -39,22 +39,22 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
               </View>
             )}
             {
-              trip.driver_photo_url && (
+              (trip.driver_photo_url || trip.image) && (
                 <View style={styles.verifiedBadge}>
                   <Text style={styles.checkMark}>✓</Text>
                 </View>
               )
             }
           </View>
-          <Text style={styles.nameText}>{trip.driver_name.split(' ')[0] || 'Name'}</Text>
+          <Text style={styles.nameText}>{(trip.driver_name || trip.shipperName || '').split(' ')[0] || 'Name'}</Text>
         </View>
 
         <View style={styles.detailsGrid}>
-          <DetailRow label="Shipper Name" value={trip.driver_name} />
-          <DetailRow label="Task" value="Chemical Delivery" />
-          <DetailRow label="Pickup" value={trip.pickup_city} />
-          <DetailRow label="Drop" value={trip.drop_city} />
-          <DetailRow label="Trip Estimate" value={`Rs ${trip.trip_estimate}`} />
+          <DetailRow label="Shipper Name" value={trip.driver_name || trip.shipperName || 'N/A'} />
+          <DetailRow label="Task" value={trip.task || "Chemical Delivery"} />
+          <DetailRow label="Pickup" value={trip.source_city || trip.pickup_city || 'N/A'} />
+          <DetailRow label="Drop" value={trip.destination_city || trip.drop_city || 'N/A'} />
+          <DetailRow label="Trip Estimate" value={`Rs ${trip.trip_cost || trip.trip_estimate || '0'}`} />
         </View>
       </View>
 

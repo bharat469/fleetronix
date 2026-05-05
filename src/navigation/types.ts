@@ -1,13 +1,4 @@
-export interface TripData {
-  id: string;
-  shipperName: string;
-  task: string;
-  pickup: string;
-  drop: string;
-  estimate: string;
-  status: string;
-  image: string;
-}
+import { Trip } from '../types/trip';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -40,10 +31,13 @@ export type RootStackParamList = {
   AllLoads: undefined;
 
   AvailableJobs: undefined;
-  TripDetails: { tripId: string; loadNumber: string };
+  TripDetails: { tripId: string; loadNumber: string; tripData?: Trip };
+  LiveTracking: { tripId?: string } | undefined;
 
-  StartTrip: { trip: TripData };
-  ConfirmDelivery: undefined;
+  StartTrip: { trip: Trip };
+  VerifyDeliveryOtp: { tripId: string };
+  Delivery: { trip: Trip };
+  ConfirmDelivery: { tripId: string };
   Rating: undefined;
   Congratulations: undefined;
   Feedback: undefined;

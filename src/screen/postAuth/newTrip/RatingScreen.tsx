@@ -14,10 +14,38 @@ import { BackArrowIcon } from '../../../assets/svgIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { getFontFamily } from '../../../helpers/fonts';
+import { useMutation } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import { postFeedback } from '../../../services/tripApi';
+import { ActivityIndicator, Alert } from 'react-native';
 
 const RatingScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tripRedux  = useSelector((state: RootState) => state.trip);
+  const token      = useSelector((state: RootState) => state.auth.accessToken);
+  const tripId     = tripRedux.tripId ?? '';
   const [rating, setRating] = useState(4);
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: postFeedback,
+    onSuccess: () => {
+      navigation.navigate('Congratulations');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Feedback Failed', error.message ?? 'Something went wrong.');
+    },
+  });
+
+  const handleSubmit = () => {
+    if (isPending) return;
+    mutate({
+      tripId,
+      rating,
+      token,
+      comment: rating >= 4 ? 'Great delivery experience' : 'Average experience'
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -35,10 +63,10 @@ const RatingScreen = () => {
         <View style={styles.feedbackCard}>
           <View style={styles.profileSection}>
             <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/men/1.jpg' }} 
+              source={{ uri: tripRedux.tripData?.driver_photo_url || tripRedux.tripData?.image || 'https://randomuser.me/api/portraits/men/1.jpg' }} 
               style={styles.profilePic} 
             />
-            <Text style={styles.userName}>That Kumar</Text>
+            <Text style={styles.userName}>{tripRedux.tripData?.driver_name || 'Driver'}</Text>
             <Text style={styles.userTier}>2nd Tier</Text>
           </View>
 
@@ -54,10 +82,15 @@ const RatingScreen = () => {
           </View>
 
           <TouchableOpacity 
-            style={styles.submitBtn}
-            onPress={() => navigation.navigate('Congratulations')}
+            style={[styles.submitBtn, isPending && { opacity: 0.7 }]}
+            onPress={handleSubmit}
+            disabled={isPending}
           >
-            <Text style={styles.submitBtnText}>Submit Review</Text>
+            {isPending ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.submitBtnText}>Submit Review</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

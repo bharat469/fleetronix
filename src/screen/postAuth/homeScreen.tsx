@@ -60,10 +60,6 @@ const HomeScreen = () => {
 
   const { mutateAsync: getAddress } = useReverseGeocode();
 
-  useEffect(() => {
-    handleLocationFetch();
-  }, []);
-
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
       const granted = await PermissionsAndroid.requestMultiple([
@@ -78,7 +74,7 @@ const HomeScreen = () => {
     return true;
   };
 
-  const handleLocationFetch = async () => {
+  const handleLocationFetch = React.useCallback(async () => {
     try {
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
@@ -117,7 +113,12 @@ const HomeScreen = () => {
     } catch (err) {
       console.log('[Location Fetch Catch]:', err);
     }
-  };
+  }, [getAddress]);
+
+  useEffect(() => {
+    handleLocationFetch();
+  }, [handleLocationFetch]);
+
 
   return (
     <View style={styles.container}>

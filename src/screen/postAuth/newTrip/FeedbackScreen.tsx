@@ -16,6 +16,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { getFontFamily } from '../../../helpers/fonts';
 import { COLORS } from '../../../helpers/values/colors';
+import { useMutation } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import { postTripFeedback } from '../../../services/tripApi';
+import { ActivityIndicator, Alert } from 'react-native';
 
 const REASONS = [
   'The pick-up or drop-off location may be too far',
@@ -28,8 +33,31 @@ const REASONS = [
 
 const FeedbackScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tripRedux  = useSelector((state: RootState) => state.trip);
+  const token      = useSelector((state: RootState) => state.auth.accessToken);
+  const tripId     = tripRedux.tripId ?? '';
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [comment, setComment] = useState('');
+
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: postTripFeedback,
+  });
+
+  const handleSubmit = async () => {
+    if (isPending || selectedReasons.length === 0) return;
+    
+    try {
+      // Submit each reason as a separate call as per backend requirement
+      await Promise.all(
+        selectedReasons.map(reason => 
+          mutateAsync({ tripId, reason, comment, token })
+        )
+      );
+      navigation.navigate('Home');
+    } catch (error: any) {
+      Alert.alert('Feedback Failed', error.message ?? 'Something went wrong.');
+    }
+  };
 
   const toggleReason = (reason: string) => {
     if (selectedReasons.includes(reason)) {
@@ -91,10 +119,15 @@ const FeedbackScreen = () => {
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={styles.submitBtn}
-            onPress={() => navigation.navigate('Home')}
+            style={[styles.submitBtn, (isPending || selectedReasons.length === 0) && { opacity: 0.7 }]}
+            onPress={handleSubmit}
+            disabled={isPending || selectedReasons.length === 0}
           >
-            <Text style={styles.submitBtnText}>Submit</Text>
+            {isPending ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.submitBtnText}>Submit</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -1,4 +1,4 @@
-const BASE_URL = 'http://103.197.76.50:8087/api';
+import apiClient from './apiClient';
 
 export interface VehicleType {
   id: string;
@@ -17,23 +17,9 @@ export interface GetVehicleTypesResponse {
 
 export const getVehicleTypes = async (): Promise<GetVehicleTypesResponse> => {
   console.log('[getVehicleTypes] 📥 Fetching vehicle types...');
-
-  const response = await fetch(`${BASE_URL}/master/vehicle-types`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[getVehicleTypes] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[getVehicleTypes] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as GetVehicleTypesResponse;
+  const response = await apiClient.get('/master/vehicle-types');
+  console.log('[getVehicleTypes] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data as GetVehicleTypesResponse;
 };
 
 export interface StateData {
@@ -53,21 +39,7 @@ export interface GetStatesResponse {
 
 export const getStates = async (): Promise<GetStatesResponse> => {
   console.log('[getStates] 📥 Fetching states...');
-
-  const response = await fetch(`${BASE_URL}/master/states`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[getStates] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[getStates] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as GetStatesResponse;
+  const response = await apiClient.get('/master/states');
+  console.log('[getStates] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data as GetStatesResponse;
 };

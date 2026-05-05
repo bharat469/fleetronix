@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,53 +14,46 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
 import { COLORS } from '../../../helpers/values/colors';
 import { BackArrowIcon, PhoneIcon, LocationIcon } from '../../../assets/svgIcons';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
-import { useTripDetails } from '../../../hooks/useTripDetails';
-import { ActivityIndicator } from 'react-native';
+import { useTripBreif, useTripDetails } from '../../../hooks/useTripDetails';
+import Config from 'react-native-config';
 
-
+/** Converts ISO timestamp → 'Apr 20, 2026 · 10:04 AM' */
+const formatDate = (iso?: string | null): string => {
+  if (!iso) return 'N/A';
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${date} · ${time}`;
+  } catch {
+    return iso;
+  }
+};
 
 const TripDetailsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TripDetails'>>();
+  const { tripId, loadNumber, } = route.params || {};
+  const mapRef = React.useRef<MapView>(null);
 
-  const { tripId, loadNumber } = route.params || { tripId: '69e5fa1075ff18906134d252', loadNumber: '283492' };
+  // Fetch live trip details
+  const { data: apiData } = useTripDetails(tripId);
+  const { data: apiBriefData } = useTripBreif(tripId);
 
-  const { data: trip, isLoading, error, refetch } = useTripDetails(tripId);
-
-  // Log the result as requested
+  // Console log the result
   React.useEffect(() => {
-    if (trip) {
-      console.log('[TripDetailsScreen] API Result:', JSON.stringify(trip, null, 2));
+    if (apiData) {
+      console.log('✅ [TripDetails API Result]:', apiData);
     }
-    // if (error) {
-    //   console.error('[TripDetailsScreen] API Error:', error);
-    // }
-  }, [trip, error]);
+  }, [apiData]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Fetching trip details...</Text>
-      </View>
-    );
-  }
+  const data = { ...apiData, ...apiBriefData }
 
-  if (error || !trip) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error instanceof Error ? error.message : 'Failed to load trip details'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-
+  console.log('sdhks', data)
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
@@ -82,21 +75,21 @@ const TripDetailsScreen = () => {
             <View style={styles.leftColumn}>
               <View style={styles.profileWrapper}>
                 <Image
-                  source={{ uri: trip.driver_photo_url || 'https://randomuser.me/api/portraits/men/32.jpg' }}
+                  source={{ uri: data?.driver_photo_url || 'https://randomuser.me/api/portraits/men/32.jpg' }}
                   style={styles.profilePic}
                 />
                 <View style={styles.verifiedBadge}>
                   <Text style={styles.checkIcon}>✓</Text>
                 </View>
               </View>
-              <Text style={styles.driverNameLarge}>{trip.driver_name?.split(' ')[0]}</Text>
+              <Text style={styles.driverNameLarge}>{data?.driver_name?.split(' ')[0] || 'N/A'}</Text>
             </View>
 
             <View style={styles.rightColumn}>
-              <MetricRow label="Task" value={trip.task || 'General Delivery'} />
-              <MetricRow label="Assigned At" value={trip.assigned_at} />
-              <MetricRow label="Current Status" value={trip.status} />
-              <MetricRow label="Trip Estimate" value={`Rs ${trip.trip_estimate}`} />
+              <MetricRow label="Task" value={data?.task || 'General Delivery'} />
+              <MetricRow label="Assigned At" value={formatDate(data?.assigned_at)} />
+              <MetricRow label="Current Status" value={data?.status} />
+              <MetricRow label="Trip Estimate" value={`Rs ${data?.trip_cost}`} />
             </View>
           </View>
 
@@ -116,12 +109,12 @@ const TripDetailsScreen = () => {
         {/* Truck Info Section (Red Box) */}
         <View style={styles.truckInfoBox}>
           <Text style={styles.boxTitle}>Truck info</Text>
-          <TableInfoRow label="Vehicle Number" value={trip.vehicle_number || 'N/A'} />
-          <TableInfoRow label="Owner Name" value={trip.owner_name || 'Fleetronix'} />
-          <TableInfoRow label="Driver Name" value={trip.driver_name || 'N/A'} />
-          <TableInfoRow label="Driver Mobile" value={trip.driver_mobile || 'N/A'} />
-          <TableInfoRow label="Status" value={trip.status || 'N/A'} />
-          <TableInfoRow label="Assigned At" value={trip.assigned_at || 'N/A'} />
+          <TableInfoRow label="Vehicle Number" value={data?.vehicle_number || 'N/A'} />
+          <TableInfoRow label="Owner Name" value={data?.owner_name || 'Fleetronix'} />
+          <TableInfoRow label="Driver Name" value={data?.driver_name || 'N/A'} />
+          <TableInfoRow label="Driver Mobile" value={data?.driver_mobile || 'N/A'} />
+          <TableInfoRow label="Status" value={data?.status || 'N/A'} />
+          <TableInfoRow label="Assigned At" value={formatDate(data?.assigned_at)} />
         </View>
 
         {/* Map Section */}
@@ -130,22 +123,68 @@ const TripDetailsScreen = () => {
         </View>
         <View style={styles.mapContainer}>
           <MapView
+            ref={mapRef}
             provider={PROVIDER_GOOGLE}
             style={styles.map}
             initialRegion={{
-              latitude: parseFloat(trip.pickup_lat) || 30.3165,
-              longitude: parseFloat(trip.pickup_lng) || 78.0322,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
+              // Centre between pickup and destination
+              latitude: ((parseFloat(data?.source_latitude) || 25.7919) + (parseFloat(data?.destination_latitude) || 23.4559)) / 2,
+              longitude: ((parseFloat(data?.source_longitude) || 73.1721) + (parseFloat(data?.destination_longitude) || 85.2557)) / 2,
+              latitudeDelta: Math.abs((parseFloat(data?.source_latitude) || 25.7919) - (parseFloat(data?.destination_latitude) || 23.4559)) * 1.5 + 0.5,
+              longitudeDelta: Math.abs((parseFloat(data?.source_longitude) || 73.1721) - (parseFloat(data?.destination_longitude) || 85.2557)) * 1.5 + 0.5,
             }}
             scrollEnabled={false}
           >
-            <Marker coordinate={{
-              latitude: parseFloat(trip.pickup_lat) || 30.3165,
-              longitude: parseFloat(trip.pickup_lng) || 78.0322
-            }}>
-              <LocationIcon color="#CA2027" width={30} height={30} />
-            </Marker>
+            {/* Google Directions route line */}
+            {data?.source_latitude && data?.destination_latitude && (
+              <MapViewDirections
+                origin={{
+                  latitude: parseFloat(data.source_latitude),
+                  longitude: parseFloat(data.source_longitude),
+                }}
+                destination={{
+                  latitude: parseFloat(data.destination_latitude),
+                  longitude: parseFloat(data.destination_longitude),
+                }}
+                apikey={Config.GOOGLE_MAPS_API_KEY ?? ''}
+                strokeWidth={4}
+                strokeColor="#CA2027"
+                onReady={(result) => {
+                  // Fit map to show full route
+                  mapRef.current?.fitToCoordinates(result.coordinates, {
+                    edgePadding: { top: 20, right: 20, bottom: 20, left: 20 },
+                    animated: false,
+                  });
+                }}
+              />
+            )}
+
+            {/* Pickup marker */}
+            {data?.source_latitude && (
+              <Marker
+                coordinate={{
+                  latitude: parseFloat(data.source_latitude),
+                  longitude: parseFloat(data.source_longitude),
+                }}
+                title="Pickup"
+                description={data?.source_address || data?.source_city}
+                pinColor="#4CAF50"
+              />
+            )}
+
+            {/* Destination marker */}
+            {data?.destination_latitude && (
+              <Marker
+                coordinate={{
+                  latitude: parseFloat(data.destination_latitude),
+                  longitude: parseFloat(data.destination_longitude),
+                }}
+                title="Destination"
+                description={data?.destination_address || data?.destination_city}
+              >
+                <LocationIcon color="#CA2027" width={30} height={30} />
+              </Marker>
+            )}
           </MapView>
         </View>
 
@@ -155,13 +194,13 @@ const TripDetailsScreen = () => {
         </View>
         <View style={styles.routeCard}>
           <RoutePoint
-            title={`${trip.pickup_address || ''}, ${trip.pickup_city}`}
+            title={`${data?.trip_direction?.starting_point || ''}`}
             time="Pick Up Point"
             type="start"
           />
           <View style={styles.routeConnector} />
           <RoutePoint
-            title={`${trip.drop_address || ''}, ${trip.drop_city}`}
+            title={`${data?.trip_direction?.ending_point || ''}`}
             time="Drop Off Point"
             type="end"
             extra="Final Destination"
@@ -173,24 +212,29 @@ const TripDetailsScreen = () => {
           <Text style={styles.sectionTitle}>Financials</Text>
         </View>
         <View style={styles.basisCard}>
-          <BasisRow label="Total trip estimate" value={`Rs ${trip.trip_estimate || trip.estimate || '0'}`} />
+          <BasisRow label="Total trip estimate" value={`Rs ${data?.total_trip_cost || data?.estimate || '0'}`} />
           <BasisHeader title="Location Details" />
-          <BasisRow label="From" value={trip.pickup_city || trip.pickup} />
-          <BasisRow label="To" value={trip.drop_city || trip.drop} />
+          <BasisRow label="From" value={data?.trip_direction?.starting_point || data?.pickup} />
+          <BasisRow label="To" value={data?.trip_direction?.ending_point || data?.drop} />
 
           <BasisHeader title="Schedule" />
-          <BasisRow label="Assigned At" value={trip.assigned_at || 'N/A'} />
-          <BasisRow label="Est. Delivery" value={trip.estimated_delivery || 'N/A'} />
+          <BasisRow label="Assigned At" value={formatDate(data?.assigned_at)} />
+          <BasisRow label="Est. Delivery" value={formatDate(data?.delivery_time ?? data?.estimated_delivery)} />
         </View>
 
+
+
+
         {/* Start Button */}
-        <TouchableOpacity
-          style={styles.startBtn}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('StartTrip', { trip })}
-        >
-          <Text style={styles.startBtnText}>Start Trip</Text>
-        </TouchableOpacity>
+        {data?.status !== 'completed' && (
+          <TouchableOpacity
+            style={styles.startBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('StartTrip', { trip: data })}
+          >
+            <Text style={styles.startBtnText}>Start Trip</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -198,46 +242,54 @@ const TripDetailsScreen = () => {
 };
 
 
-const MetricRow = ({ label, value }: { label: string, value: string }) => (
-  <View style={styles.metricRow}>
-    <Text style={styles.metricLabel}>{label}</Text>
-    <Text style={styles.metricValue}>{value}</Text>
-  </View>
-);
-
-const TableInfoRow = ({ label, value }: { label: string, value: string }) => (
-  <View style={styles.tableRow}>
-    <Text style={styles.tableLabel}>{label}</Text>
-    <Text style={styles.tableValue}>{value}</Text>
-  </View>
-);
-
-const RoutePoint = ({ title, time, type, extra }: { title: string, time: string, type: string, extra?: string }) => (
-  <View style={styles.routePoint}>
-    <View style={styles.pointDotContainer}>
-      <View style={[
-        styles.pointDot,
-        type === 'start' ? styles.startDot : type === 'end' ? styles.endDot : styles.midDot
-      ]} />
+function MetricRow({ label, value }: { label: string, value: string }) {
+  return (
+    <View style={styles.metricRow}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
     </View>
-    <View style={styles.pointContent}>
-      <Text style={styles.pointTitle}>{title}</Text>
-      <Text style={styles.pointTime}>{time}</Text>
-      {extra && <Text style={styles.pointExtra}>{extra}</Text>}
+  );
+}
+
+function TableInfoRow({ label, value }: { label: string, value: string }) {
+  return (
+    <View style={styles.tableRow}>
+      <Text style={styles.tableLabel}>{label}</Text>
+      <Text style={styles.tableValue}>{value}</Text>
     </View>
-  </View>
-);
+  );
+}
 
-const BasisHeader = ({ title }: { title: string }) => (
-  <Text style={styles.basisHeader}>{title}</Text>
-);
+function RoutePoint({ title, time, type, extra }: { title: string, time: string, type: string, extra?: string }) {
+  return (
+    <View style={styles.routePoint}>
+      <View style={styles.pointDotContainer}>
+        <View style={[
+          styles.pointDot,
+          type === 'start' ? styles.startDot : type === 'end' ? styles.endDot : styles.midDot
+        ]} />
+      </View>
+      <View style={styles.pointContent}>
+        <Text style={styles.pointTitle}>{title}</Text>
+        <Text style={styles.pointTime}>{time}</Text>
+        {extra && <Text style={styles.pointExtra}>{extra}</Text>}
+      </View>
+    </View>
+  );
+}
 
-const BasisRow = ({ label, value }: { label: string, value: string }) => (
-  <View style={styles.basisBox}>
-    <Text style={styles.basisLabel}>{label}</Text>
-    <Text style={styles.basisValue}>{value}</Text>
-  </View>
-);
+function BasisHeader({ title }: { title: string }) {
+  return <Text style={styles.basisHeader}>{title}</Text>;
+}
+
+function BasisRow({ label, value }: { label: string, value: string }) {
+  return (
+    <View style={styles.basisBox}>
+      <Text style={styles.basisLabel}>{label}</Text>
+      <Text style={styles.basisValue}>{value}</Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -321,6 +373,17 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     fontWeight: '800',
     color: '#000',
+  },
+  ratingText: {
+    fontSize: moderateScale(12),
+    color: '#F5A623',
+    fontWeight: '700',
+    marginTop: verticalScale(2),
+  },
+  tripsText: {
+    fontSize: moderateScale(11),
+    color: '#858080',
+    marginTop: verticalScale(1),
   },
   rightColumn: {
     flex: 1,
@@ -409,7 +472,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   mapContainer: {
-    height: verticalScale(150),
+    height: verticalScale(220),
     marginHorizontal: scale(20),
     borderRadius: scale(15),
     overflow: 'hidden',
@@ -540,6 +603,35 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '700',
   },
+  // center: {
+  //   flex: 1,
+  //   justifyContent: 'center',
+  //   alignItems: 'center',
+  //   backgroundColor: 'white',
+  //   padding: scale(20),
+  // },
+  // loadingText: {
+  //   marginTop: verticalScale(15),
+  //   fontSize: moderateScale(16),
+  //   color: '#666',
+  // },
+  // errorText: {
+  //   fontSize: moderateScale(16),
+  //   color: COLORS.primary,
+  //   textAlign: 'center',
+  //   marginBottom: verticalScale(20),
+  // },
+  // retryButton: {
+  //   paddingHorizontal: scale(30),
+  //   paddingVertical: verticalScale(12),
+  //   backgroundColor: COLORS.primary,
+  //   borderRadius: scale(10),
+  // },
+  // retryText: {
+  //   color: 'white',
+  //   fontSize: moderateScale(16),
+  //   fontWeight: '600',
+  // },
 });
 
 

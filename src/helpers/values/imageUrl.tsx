@@ -77,6 +77,7 @@ export const SVG_Url = {
   uploadDocument: require('../../assets/images/svg/forms/upload.svg').default,
   phoneActions: require('../../assets/images/svg/forms/phone.svg').default,
   congratulations: require('../../assets/images/svg/congrats.svg').default,
+
 }
 
 export type IconName = keyof typeof SVG_Url;

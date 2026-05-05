@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Config from 'react-native-config';
 
 export interface GeocodingResponse {
@@ -17,8 +18,8 @@ export const fetchAddressFromCoords = async (lat: number, lng: number): Promise<
 
   console.log('[mapApi] 📥 Fetching address for:', lat, lng);
 
-  const response = await fetch(url);
-  const data: GeocodingResponse = await response.json();
+  const response = await axios.get<GeocodingResponse>(url);
+  const data = response.data;
 
   if (data.status === 'OK' && data.results.length > 0) {
     console.log('[mapApi] ✅ Found address:', data.results[0].formatted_address);

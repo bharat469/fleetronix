@@ -7,9 +7,12 @@ import {
   ScrollView,
   TextInput,
   StatusBar,
+  Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
 import { COLORS } from '../../../helpers/values/colors';
 import { BackArrowIcon } from '../../../assets/svgIcons';
@@ -21,10 +24,18 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useImageSelection } from '../../../helpers/useImageSelection';
 import BottomSheetComponent from '../../../components/bottomsheet';
 import FastImage from 'react-native-fast-image';
-import { Platform } from 'react-native';
+import { useMutation } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import { confirmDelivery } from '../../../services/tripApi';
 
 const ConfirmDeliveryScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<any>();
+  const tripRedux = useSelector((state: RootState) => state.trip);
+  const token = useSelector((state: RootState) => state.auth.accessToken);
+  const tripId = route.params?.tripId ?? tripRedux.tripId ?? '';
+
   const [formData, setFormData] = useState({
     recipientName: '',
     deliveryDate: new Date(),
@@ -37,8 +48,19 @@ const ConfirmDeliveryScreen = () => {
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
 
-  const { setIsPickerVisible, isPickerVisible, takePhoto, pickImage } = useImageSelection((asset) => {
+  const { setIsPickerVisible, isPickerVisible, takePhoto, pickImage } = useImageSelection((asset: any) => {
     setFormData(prev => ({ ...prev, podImage: asset }));
+  });
+
+  // ── TanStack Query mutation ─────────────────────────────────────────────
+  const mutation = useMutation({
+    mutationFn: confirmDelivery,
+    onSuccess: () => {
+      navigation.navigate('Rating');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Submission Failed', error.message ?? 'Please try again.');
+    },
   });
 
   const handleInputChange = (field: string, value: any) => {
@@ -59,15 +81,41 @@ const ConfirmDeliveryScreen = () => {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
+  const formatDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
+  const formatDateDisplay = (date: Date) =>
+    date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const isFormValid = formData.recipientName.length > 2 && formData.confirmationNumber.length > 3 && formData.podImage;
+  const formatTime = (date: Date) =>
+    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+  const formatTimeDisplay = (date: Date) =>
+    date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  const isFormValid = formData.recipientName.trim().length > 0;
+
+  const handleSubmit = () => {
+    if (!isFormValid || mutation.isPending) return;
+    mutation.mutate({
+      tripId,
+      recipientName: formData.recipientName.trim(),
+      deliveryDate: formatDate(formData.deliveryDate),
+      deliveryTime: formatTime(formData.deliveryTime),
+      confirmationNumber: formData.confirmationNumber || undefined,
+      remark: formData.remark || undefined,
+      latitude: tripRedux.liveLocation?.latitude,
+      longitude: tripRedux.liveLocation?.longitude,
+      documents: formData.podImage
+        ? [{
+          uri: formData.podImage.uri,
+          name: formData.podImage.fileName ?? `pod_${Date.now()}.jpg`,
+          type: formData.podImage.type ?? 'image/jpeg',
+        }]
+        : undefined,
+      token: token ?? '',
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,7 +151,7 @@ const ConfirmDeliveryScreen = () => {
                 <InputGroup
                   label="Delivery date"
                   placeholder="Delivery date"
-                  value={formatDate(formData.deliveryDate)}
+                  value={formatDateDisplay(formData.deliveryDate)}
                   icon='deliveryTime'
                   editable={false}
                   pointerEvents="none"
@@ -115,7 +163,7 @@ const ConfirmDeliveryScreen = () => {
                 <InputGroup
                   label="Delivery Time"
                   placeholder="Delivery time"
-                  value={formatTime(formData.deliveryTime)}
+                  value={formatTimeDisplay(formData.deliveryTime)}
                   icon='deliveryTime'
                   editable={false}
                   pointerEvents="none"
@@ -192,11 +240,18 @@ const ConfirmDeliveryScreen = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.submitBtn, !isFormValid && styles.disabledBtn]}
-          onPress={() => isFormValid && navigation.navigate('Rating')}
-          disabled={!isFormValid}
+          style={[styles.submitBtn, (!isFormValid || mutation.isPending) && styles.disabledBtn]}
+          onPress={handleSubmit}
+          disabled={!isFormValid || mutation.isPending}
         >
-          <Text style={styles.submitBtnText}>Submit</Text>
+          {mutation.isPending ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color="white" size="small" />
+              <Text style={styles.submitBtnText}>Submitting...</Text>
+            </View>
+          ) : (
+              <Text style={styles.submitBtnText}>Submit</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 

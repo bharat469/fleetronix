@@ -142,7 +142,8 @@ const AllLoadsScreen = () => {
                 trip={item} 
                 onPress={(trip) => navigation.navigate('TripDetails', { 
                   tripId: trip.trip_id, 
-                  loadNumber: trip.load_id || trip.trip_number 
+                  loadNumber: trip.load_id || trip.trip_number,
+                  tripData: trip // Restoring full object
                 })} 
               />
 
