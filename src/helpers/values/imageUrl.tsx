@@ -67,6 +67,17 @@ export const SVG_Url = {
   notificationMenuIcon: require('../../assets/images/svg/notification.svg').default,
   sleepIcon: require('../../assets/images/svg/sleep.svg').default,
   drivingIcon: require('../../assets/images/svg/driving.svg').default,
+  newTrip: require('../../assets/images/svg/newTrip.svg').default,
+  waiting: require('../../assets/images/svg/waiting.svg').default,
+  clock: require('../../assets/images/svg/clock.svg').default,
+  pin: require('../../assets/images/svg/pin.svg').default,
+  confirmationNumber: require('../../assets/images/svg/forms/confirmationNumber.svg').default,
+  deliveryTime: require('../../assets/images/svg/forms/deleveryTime.svg').default,
+  recipentName: require('../../assets/images/svg/forms/recipentName.svg').default,
+  uploadDocument: require('../../assets/images/svg/forms/upload.svg').default,
+  phoneActions: require('../../assets/images/svg/forms/phone.svg').default,
+  congratulations: require('../../assets/images/svg/congrats.svg').default,
+
 }
 
 export type IconName = keyof typeof SVG_Url;

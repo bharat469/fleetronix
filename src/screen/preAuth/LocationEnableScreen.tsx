@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,30 +15,115 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SvgIcon from '../../helpers/svgComponents';
+import Geolocation from 'react-native-geolocation-service';
+import { PermissionsAndroid, Platform } from 'react-native';
+import { storage } from '../../helpers/asyncHelper';
+import { useReverseGeocode } from '../../hooks/useGeocoding';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LocationEnable'>;
 
 const LocationEnableScreen: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
+  const { mutateAsync: getAddress } = useReverseGeocode();
 
-  const handleUseLocation = () => {
-    // Logic to request location permission would go here
-    console.log('Requesting location permission...');
-    navigation.navigate('SelectTruck');
+  useEffect(() => {
+    checkSavedLocation();
+  }, []);
+
+  const checkSavedLocation = async () => {
+    const savedAddress = await storage.get('CURRENT_LOCATION_ADDRESS');
+    if (savedAddress) {
+      console.log('Location already saved, redirecting...');
+      navigation.navigate('SelectTruck');
+    }
   };
+
+  const handleUseLocation = async () => {
+    console.log('Requesting location permission...');
+    const coords = await getCurrentLocation();
+
+    if (coords) {
+      try {
+        const address = await getAddress({
+          lat: coords.latitude,
+          lng: coords.longitude
+        });
+
+        if (address) {
+          console.log('Fetched Address:', address);
+          await storage.set('CURRENT_LOCATION_ADDRESS', address);
+          navigation.navigate('SelectTruck');
+        } else {
+          console.log('Could not fetch address');
+          navigation.navigate('SelectTruck');
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        navigation.navigate('SelectTruck');
+      }
+    }
+  };
+
+
 
   const handleSkip = () => {
     navigation.navigate('SelectTruck');
   };
 
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      ]);
+      return (
+        granted['android.permission.ACCESS_FINE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED ||
+        granted['android.permission.ACCESS_COARSE_LOCATION'] === PermissionsAndroid.RESULTS.GRANTED
+      );
+    }
+    return true;
+  };
+
+  const getCurrentLocation = async (): Promise<any> => {
+    try {
+      const hasPermission = await requestLocationPermission();
+      console.log(hasPermission, 'hasPermission')
+
+      return new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            console.log('[Location Success]:', position.coords);
+            resolve(position.coords);
+          },
+          (error) => {
+            console.log('[Location Error]:', error.code, error.message);
+            reject(error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 10000,
+            forceRequestLocation: true,
+            showLocationDialog: true,
+          }
+        );
+      });
+    } catch (err) {
+      console.log('[Crash Catch]:', err);
+      return null;
+    }
+  };
+
+
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.illustrationContainer}>
-          <SvgIcon 
-            name="locationIllustration" 
-            width={scale(300)} 
-            height={verticalScale(300)} 
+          <SvgIcon
+            name="locationIllustration"
+            width={scale(300)}
+            height={verticalScale(300)}
           />
         </View>
 

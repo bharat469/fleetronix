@@ -3,6 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const storage = {
   async set<T>(key: string, value: T): Promise<void> {
     try {
+      if (value === undefined || value === null) {
+        // Option 1: Remove if null/undefined
+        // await AsyncStorage.removeItem(key);
+        // Option 2: Just skip to prevent crash
+        console.warn(`[storage] Attempted to set ${key} to ${value}, skipping to prevent crash.`);
+        return;
+      }
       const jsonValue = JSON.stringify(value);
       await AsyncStorage.setItem(key, jsonValue);
     } catch (error) {

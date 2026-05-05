@@ -22,10 +22,43 @@ import AddAddressScreen from '../screen/postAuth/AddAddressScreen';
 import EnterAddressScreen from '../screen/postAuth/EnterAddressScreen';
 import KYCScreen from '../screen/postAuth/KYCScreen';
 import StatusScreen from '../screen/postAuth/StatusScreen';
+import NewTripLocationScreen from '../screen/postAuth/newTrip/NewTripLocationScreen';
+import NewTripDateScreen from '../screen/postAuth/newTrip/NewTripDateScreen';
+import NewTripPreferencesScreen from '../screen/postAuth/newTrip/NewTripPreferencesScreen';
+import SearchingTruckScreen from '../screen/postAuth/newTrip/SearchingTruckScreen';
+import NegotiationZoneScreen from '../screen/postAuth/newTrip/NegotiationZoneScreen';
+import AllLoadsScreen from '../screen/postAuth/newTrip/AllLoadsScreen';
+
+import AvailableJobsScreen from '../screen/postAuth/newTrip/AvailableJobsScreen';
+import TripDetailsScreen from '../screen/postAuth/newTrip/TripDetailsScreen';
+import StartTripScreen from '../screen/postAuth/newTrip/StartTripScreen';
+import ConfirmDeliveryScreen from '../screen/postAuth/newTrip/ConfirmDeliveryScreen';
+import RatingScreen from '../screen/postAuth/newTrip/RatingScreen';
+import CongratulationsScreen from '../screen/postAuth/newTrip/CongratulationsScreen';
+import FeedbackScreen from '../screen/postAuth/newTrip/FeedbackScreen';
+import LiveTrackingScreen from '../screen/postAuth/newTrip/LiveTrackingScreen';
+import VerifyDeliveryOtpScreen from '../screen/postAuth/newTrip/VerifyDeliveryOtpScreen';
+import DeliveryScreen from '../screen/postAuth/newTrip/DeliveryScreen';
+import { useLocationTracking } from '../hooks/useLocationTracking';
 import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+/**
+ * Global component to keep location tracking alive even when LiveTrackingScreen is unmounted.
+ */
+const GlobalLocationTracker = () => {
+  const tripId = useSelector((state: RootState) => state.trip.tripId);
+  const status = useSelector((state: RootState) => state.trip.tripData?.status);
+  
+  // Only track if trip is active/started
+  const isTrackingEnabled = status === 'started' || status === 'in_progress';
+  
+  useLocationTracking(tripId, isTrackingEnabled);
+  
+  return null;
+};
 
 export const RootNavigator = () => {
   const { userToken, purpose } = useSelector((state: RootState) => state.auth);
@@ -67,40 +100,63 @@ export const RootNavigator = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {userToken == null ? (
-        <Stack.Group>
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="OTPVerify" component={OTPVerifyScreen} />
-          {/* Note: We still keep these in the pre-auth group just in case navigation is triggered during the flow */}
-          <Stack.Screen name="LocationEnable" component={LocationEnableScreen} />
-          <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
-          <Stack.Screen name="SelectState" component={SelectStateScreen} />
-          <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
-          <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
-          <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
-        </Stack.Group>
-      ) : purpose === 'register' ? (
-        <Stack.Group>
-          <Stack.Screen name="LocationEnable" component={LocationEnableScreen} />
-          <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
-          <Stack.Screen name="SelectState" component={SelectStateScreen} />
-          <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
-          <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
-          <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
-        </Stack.Group>
-      ) : (
-        <Stack.Group>
-          <Stack.Screen name="Home" component={TabNavigator} />
-          <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
-          <Stack.Screen name="AddAddress" component={AddAddressScreen} />
-          <Stack.Screen name="EnterAddress" component={EnterAddressScreen} />
-          <Stack.Screen name="KYC" component={KYCScreen} />
-          <Stack.Screen name="Status" component={StatusScreen} />
-        </Stack.Group>
-      )}
-    </Stack.Navigator>
+    <View style={{ flex: 1 }}>
+      <GlobalLocationTracker />
+      <Stack.Navigator
+        initialRouteName={userToken && purpose ? 'Home' : 'Onboarding'}
+        screenOptions={{ headerShown: false }}
+      >
+        {userToken == null ? (
+          <Stack.Group>
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="OTPVerify" component={OTPVerifyScreen} />
+            {/* Note: We still keep these in the pre-auth group just in case navigation is triggered during the flow */}
+            <Stack.Screen name="LocationEnable" component={LocationEnableScreen} />
+            <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
+            <Stack.Screen name="SelectState" component={SelectStateScreen} />
+            <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
+            <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
+            <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
+          </Stack.Group>
+        ) : purpose === 'register' ? (
+          <Stack.Group>
+            <Stack.Screen name="LocationEnable" component={LocationEnableScreen} />
+            <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
+            <Stack.Screen name="SelectState" component={SelectStateScreen} />
+            <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
+            <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
+            <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
+          </Stack.Group>
+        ) : (
+          <Stack.Group>
+            <Stack.Screen name="Home" component={TabNavigator} />
+            <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} />
+            <Stack.Screen name="AddAddress" component={AddAddressScreen} />
+            <Stack.Screen name="EnterAddress" component={EnterAddressScreen} />
+            <Stack.Screen name="KYC" component={KYCScreen} />
+            <Stack.Screen name="Status" component={StatusScreen} />
+            <Stack.Screen name="NewTripLocation" component={NewTripLocationScreen} />
+            <Stack.Screen name="NewTripDate" component={NewTripDateScreen} />
+            <Stack.Screen name="NewTripPreferences" component={NewTripPreferencesScreen} />
+            <Stack.Screen name="SearchingTruck" component={SearchingTruckScreen} />
+            <Stack.Screen name="NegotiationZone" component={NegotiationZoneScreen} />
+            <Stack.Screen name="AllLoads" component={AllLoadsScreen} />
+
+            <Stack.Screen name="AvailableJobs" component={AvailableJobsScreen} />
+            <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+            <Stack.Screen name="LiveTracking" component={LiveTrackingScreen} />
+            <Stack.Screen name="StartTrip" component={StartTripScreen} />
+            <Stack.Screen name="VerifyDeliveryOtp" component={VerifyDeliveryOtpScreen} />
+            <Stack.Screen name="Delivery" component={DeliveryScreen} />
+            <Stack.Screen name="ConfirmDelivery" component={ConfirmDeliveryScreen} />
+            <Stack.Screen name="Rating" component={RatingScreen} />
+            <Stack.Screen name="Congratulations" component={CongratulationsScreen} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
+          </Stack.Group>
+        )}
+      </Stack.Navigator>
+    </View>
   );
 };

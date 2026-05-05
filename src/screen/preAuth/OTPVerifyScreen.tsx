@@ -116,7 +116,7 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleResendOTP = () => {
     if (timer > 0 || isResending) return;
-    resendOtp({ mobile: phoneNumber, purpose: 'login' });
+    resendOtp({ mobile: phoneNumber, purpose: purpose });
   };
 
   const maskedPhone = `+91${phoneNumber.slice(0, 3)}*******`;

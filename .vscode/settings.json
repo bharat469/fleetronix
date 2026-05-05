@@ -1,3 +1,6 @@
 {
-  "conventionalCommits.scopes": ["onboarding"]
+  "conventionalCommits.scopes": [
+    "onboarding",
+    "profile page"
+  ]
 }

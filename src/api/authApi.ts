@@ -1,7 +1,10 @@
-import Config from 'react-native-config';
+import apiClient from './apiClient';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 import { store } from '../redux/store';
 import { updateTokens, logout } from '../redux/slices/authSlice';
 import { storage } from '../helpers/asyncHelper.tsx';
+import axios from 'axios';
+import Config from 'react-native-config';
 
 const BASE_URL = Config.API_BASE_URL;
 
@@ -58,130 +61,46 @@ export type LoginResponse = RegisterResponse;
 export type ResendOtpPayload = SendOtpPayload;
 export type ResendOtpResponse = SendOtpResponse;
 
-
-
 export interface UpdateDriverPayload {
   driverId: string;
   token: string;
-  data: Record<string, any>; // Using any to allow strings, arrays, booleans, and Asset objects
+  data: Record<string, any>;
 }
 
 export const sendOtp = async (payload: SendOtpPayload): Promise<SendOtpResponse> => {
   console.log('[sendOtp] 📤 Request payload:', JSON.stringify(payload, null, 2));
-
-  const response = await fetch(`${BASE_URL}/driver/auth/send-otp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[sendOtp] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[sendOtp] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as SendOtpResponse;
+  const response = await apiClient.post('/driver/auth/send-otp', payload);
+  console.log('[sendOtp] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data;
 };
 
 export const resendOtp = async (payload: ResendOtpPayload): Promise<ResendOtpResponse> => {
   console.log('[resendOtp] 📤 Request payload:', JSON.stringify(payload, null, 2));
-
-  const response = await fetch(`${BASE_URL}/driver/auth/resend-otp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[resendOtp] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[resendOtp] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as ResendOtpResponse;
+  const response = await apiClient.post('/driver/auth/resend-otp', payload);
+  console.log('[resendOtp] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data;
 };
 
 export const checkMobile = async (payload: CheckMobilePayload): Promise<CheckMobileResponse> => {
   console.log('[checkMobile] 📤 Request payload:', JSON.stringify(payload, null, 2));
-
-  const response = await fetch(`${BASE_URL}/driver/auth/check-mobile`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[checkMobile] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[checkMobile] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as CheckMobileResponse;
+  const response = await apiClient.post('/driver/auth/check-mobile', payload);
+  console.log('[checkMobile] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data;
 };
 
 export const register = async (payload: RegisterPayload): Promise<RegisterResponse> => {
   console.log('[register] 📤 Request payload:', JSON.stringify(payload, null, 2));
-
-  const response = await fetch(`${BASE_URL}/driver/auth/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[register] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[register] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as RegisterResponse;
+  const response = await apiClient.post('/driver/auth/register', payload);
+  console.log('[register] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data;
 };
 
 export const login = async (payload: LoginPayload): Promise<LoginResponse> => {
   console.log('[login] 📤 Request payload:', JSON.stringify(payload, null, 2));
-
-  const response = await fetch(`${BASE_URL}/driver/auth/login-otp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    console.error('[login] ❌ Error response:', response.status, JSON.stringify(json, null, 2));
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  console.log('[login] ✅ Success response:', JSON.stringify(json, null, 2));
-  return json as LoginResponse;
+  const response = await apiClient.post('/driver/auth/login-otp', payload);
+  console.log('[login] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data;
 };
-
-import ReactNativeBlobUtil from 'react-native-blob-util';
 
 export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> => {
   const { driverId, token, data } = payload;
@@ -195,13 +114,11 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
     const value = data[key];
     if (value === null || value === undefined) return;
 
-    // 1. Array → comma spearated
     if (Array.isArray(value)) {
       multipartBody.push({ name: key, data: value.join(',') });
       return;
     }
 
-    // 2. File handling
     const isFile = (typeof value === 'object' && value?.uri) ||
       (typeof value === 'string' && (
         value.startsWith('file://') ||
@@ -214,7 +131,6 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
       const fileName = typeof value === 'object' ? (value.fileName || value.name) : null;
       const type = typeof value === 'object' ? value.type : null;
 
-      // react-native-blob-util needs the path without file://
       const cleanPath = uri.replace('file://', '');
       const name = fileName || uri.split('/').pop() || `${key}.jpg`;
 
@@ -227,7 +143,6 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
       return;
     }
 
-    // 3. Normal fields
     multipartBody.push({ name: key, data: String(value) });
   });
 
@@ -252,10 +167,22 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
 
     if (status === 401) {
       try {
-        const newToken = await performTokenRefresh();
-        // Retry with new token
+        // Use logic from performTokenRefresh
+        const state = store.getState();
+        const refreshToken = state.auth.refreshToken;
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const refreshResponse = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
+          headers: { Authorization: `Bearer ${refreshToken}` }
+        });
+
+        const { access_token, refresh_token } = refreshResponse.data;
+        store.dispatch(updateTokens({ accessToken: access_token, refreshToken: refresh_token }));
+        await storage.set('userToken', access_token);
+        await storage.set('refreshToken', refresh_token);
+
         const retryResponse = await ReactNativeBlobUtil.fetch('PATCH' as any, url, {
-          Authorization: `Bearer ${newToken}`,
+          Authorization: `Bearer ${access_token}`,
           'Content-Type': 'multipart/form-data',
           Accept: 'application/json',
         }, multipartBody);
@@ -286,73 +213,7 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
   }
 };
 
-export const refreshAccessToken = async (refreshToken: string): Promise<{ access_token: string; refresh_token: string }> => {
-  const response = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${refreshToken}`,
-      Accept: 'application/json',
-    },
-  });
-
-  const json = await response.json();
-
-  if (!response.ok) {
-    throw new Error(json?.message ?? 'Refresh token failed');
-  }
-
-  return json;
-};
-
-const performTokenRefresh = async () => {
-  const state = store.getState();
-  const refreshToken = state.auth.refreshToken;
-
-  if (!refreshToken) throw new Error('No refresh token available');
-
-  try {
-    const data = await refreshAccessToken(refreshToken);
-    store.dispatch(updateTokens({ accessToken: data.access_token, refreshToken: data.refresh_token }));
-    await storage.set('userToken', data.access_token);
-    await storage.set('refreshToken', data.refresh_token);
-    return data.access_token;
-  } catch (error) {
-    store.dispatch(logout());
-    throw error;
-  }
-};
-
 export const getDriverInfo = async (driverId: string, token: string): Promise<any> => {
-  let currentToken = token;
-  let response = await fetch(`${BASE_URL}/driver/${driverId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${currentToken}`,
-      Accept: 'application/json',
-    },
-  });
-
-  let json = await response.json();
-
-  if (response.status === 401) {
-    try {
-      currentToken = await performTokenRefresh();
-      response = await fetch(`${BASE_URL}/driver/${driverId}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-          Accept: 'application/json',
-        },
-      });
-      json = await response.json();
-    } catch (refreshError) {
-      throw new Error('Session expired. Please login again.');
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(json?.message ?? `Request failed with status ${response.status}`);
-  }
-
-  return json;
+  const response = await apiClient.get(`/driver/${driverId}`);
+  return response.data;
 };

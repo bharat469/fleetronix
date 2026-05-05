@@ -1,6 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface AuthState {
+  accessToken: any;
+  user: any;
   userToken: string | null;
   refreshToken: string | null;
   driverId: string | null;
@@ -14,6 +16,8 @@ const initialState: AuthState = {
   driverId: null,
   purpose: null,
   isRegistered: false,
+  user: undefined,
+  accessToken: undefined
 };
 
 const authSlice = createSlice({
@@ -22,13 +26,15 @@ const authSlice = createSlice({
   reducers: {
     setTokens: (state, action: PayloadAction<{ accessToken: string; refreshToken: string; driverId: string; purpose: string }>) => {
       state.userToken = action.payload.accessToken;
+      state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.driverId = action.payload.driverId;
       state.purpose = action.payload.purpose;
     },
     updateTokens: (state, action: PayloadAction<{ accessToken: string; refreshToken: string }>) => {
       state.userToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
+      state.accessToken = action.payload.accessToken;
+
     },
     setPurpose: (state, action: PayloadAction<string>) => {
       state.purpose = action.payload;

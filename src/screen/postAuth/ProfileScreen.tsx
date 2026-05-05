@@ -22,8 +22,7 @@ import {
   SearchIcon,
   LogoutMenuIcon,
   ChevronRightIcon,
-  EditPenIcon,
-  ShieldCheckIcon,
+
 } from '../../assets/svgIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
