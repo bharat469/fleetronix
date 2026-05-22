@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
@@ -10,10 +10,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CongratulationsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Congratulations'>>();
+  const { trip } = route.params;
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.navigate('Feedback');
+      navigation.navigate('Feedback', { trip });
     }, 3000);
     return () => clearTimeout(timer);
   }, [navigation]);

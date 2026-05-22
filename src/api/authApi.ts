@@ -34,6 +34,8 @@ export interface CheckMobileResponse {
 export interface RegisterPayload {
   mobile: string;
   otp: string;
+  fcm_token?: string;
+  device_id?: string;
 }
 
 export interface RegisterResponse {
@@ -54,6 +56,8 @@ export interface RegisterResponse {
 export interface LoginPayload {
   mobile: string;
   otp: string;
+  fcm_token?: string;
+  device_id?: string;
 }
 
 export type LoginResponse = RegisterResponse;

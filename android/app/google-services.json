@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "819768664085",
+    "project_id": "pro-fleetronix-2",
+    "storage_bucket": "pro-fleetronix-2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:819768664085:android:2907f239fd7f3770a76e1c",
+        "android_client_info": {
+          "package_name": "com.truckdeleveryapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ0G51IB6jCTEqA-6vNv78vlzRe517ajQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

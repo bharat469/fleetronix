@@ -25,16 +25,22 @@ import { useImageSelection } from '../../../helpers/useImageSelection';
 import BottomSheetComponent from '../../../components/bottomsheet';
 import FastImage from 'react-native-fast-image';
 import { useMutation } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { confirmDelivery } from '../../../services/tripApi';
+import { resetTrip } from '../../../redux/slices/tripSlice';
 
 const ConfirmDeliveryScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<any>();
+  const dispatch = useDispatch();
   const tripRedux = useSelector((state: RootState) => state.trip);
   const token = useSelector((state: RootState) => state.auth.accessToken);
-  const tripId = route.params?.tripId ?? tripRedux.tripId ?? '';
+
+  const { trip } = route.params;
+  const tripId = tripRedux.tripId || trip?.trip_id;
+
+
 
   const [formData, setFormData] = useState({
     recipientName: '',
@@ -56,7 +62,7 @@ const ConfirmDeliveryScreen = () => {
   const mutation = useMutation({
     mutationFn: confirmDelivery,
     onSuccess: () => {
-      navigation.navigate('Rating');
+      navigation.navigate('Rating', { trip });
     },
     onError: (error: Error) => {
       Alert.alert('Submission Failed', error.message ?? 'Please try again.');
@@ -116,6 +122,11 @@ const ConfirmDeliveryScreen = () => {
       token: token ?? '',
     });
   };
+
+  if (!tripId || !trip) {
+    console.warn('[ConfirmDeliveryScreen] No tripId found in Redux');
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

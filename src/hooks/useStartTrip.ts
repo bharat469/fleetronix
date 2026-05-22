@@ -70,7 +70,7 @@ export const useStartTrip = () => {
     onSuccess: (data, variables) => {
       if (data?.message) dispatch(setActiveTripData(data.message));
       dispatch(setLifecycle('started'));
-      navigation.navigate('LiveTracking', { tripId: variables.tripId });
+      navigation.navigate('LiveTracking');
     },
     onError: (error: Error) => {
       console.error('[useStartTrip] startTrip failed:', error.message);

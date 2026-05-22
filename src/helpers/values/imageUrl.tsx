@@ -77,6 +77,13 @@ export const SVG_Url = {
   uploadDocument: require('../../assets/images/svg/forms/upload.svg').default,
   phoneActions: require('../../assets/images/svg/forms/phone.svg').default,
   congratulations: require('../../assets/images/svg/congrats.svg').default,
+  locationSmallIcon: require('../../assets/images/svg/iconLocation.svg').default,
+  foodIconExpense: require('../../assets/images/svg/expense/food.svg').default,
+  pendingExpenses: require('../../assets/images/svg/expense/pending.svg').default,
+  receivedExpenses: require('../../assets/images/svg/expense/recevied.svg').default,
+  subscribeExpese: require('../../assets/images/svg/expense/subscribe.svg').default,
+  shoppingIconExpense: require('../../assets/images/svg/expense/shop.svg').default,
+  filterExpense: require('../../assets/images/svg/expense/filter.svg').default,
 
 }
 

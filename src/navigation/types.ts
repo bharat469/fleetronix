@@ -32,13 +32,16 @@ export type RootStackParamList = {
 
   AvailableJobs: undefined;
   TripDetails: { tripId: string; loadNumber: string; tripData?: Trip };
-  LiveTracking: { tripId?: string } | undefined;
-
-  StartTrip: { trip: Trip };
-  VerifyDeliveryOtp: { tripId: string };
-  Delivery: { trip: Trip };
-  ConfirmDelivery: { tripId: string };
-  Rating: undefined;
-  Congratulations: undefined;
-  Feedback: undefined;
+  LiveTracking: { trip: any };
+  StartTrip: { trip: any };
+  VerifyDeliveryOtp: { trip: any };
+  Delivery: { trip: any };
+  ConfirmDelivery: { trip: any };
+  Rating: { trip: any };
+  Congratulations: { trip: any };
+  Feedback: { trip: any };
+  ExpenseDashboard: undefined;
+  AddExpense: undefined;
+  ExpenseSuccess: { expenseId: string };
+  TransporterScreen: undefined;
 };

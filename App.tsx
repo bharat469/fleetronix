@@ -27,8 +27,28 @@ const queryClient = new QueryClient({
 // Initialize i18n
 import './src/i18n';
 import AlertPopup from './src/components/common/AlertPopup';
+import { notificationService } from './src/services/NotificationService';
+import { useEffect } from 'react';
 
 function App() {
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    const setup = async () => {
+      await notificationService.initialize();
+      const unsubs = await notificationService.setupFCM();
+      if (unsubs && typeof unsubs === 'function') {
+        unsubscribe = unsubs as () => void;
+      }
+    };
+
+    setup();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>

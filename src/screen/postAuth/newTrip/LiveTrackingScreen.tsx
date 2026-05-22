@@ -34,6 +34,7 @@ import { setLiveLocation } from '../../../redux/slices/tripSlice';
 import { scale, verticalScale, moderateScale, SCREEN } from '../../../helpers/dimension';
 import { RootStackParamList } from '../../../navigation/types';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { useLocationTracking } from '../../../hooks/useLocationTracking';
 
 const GOOGLE_MAPS_API_KEY = Config.GOOGLE_MAPS_API_KEY ?? '';
 const NEAR_DEST_KM  = 0.5;
@@ -127,10 +128,16 @@ const MOCK_MODE = true;
 const LiveTrackingScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route      = useRoute<RouteProp<RootStackParamList, 'LiveTracking'>>();
+  const { trip }   = route.params;
   const dispatch  = useDispatch();
   const mapRef    = useRef<MapView>(null);
   const tripRedux = useSelector((state: RootState) => state.trip);
-  const tripId    = (route.params as any)?.tripId ?? tripRedux.tripId;
+  const tripId    = tripRedux.tripId;
+
+
+
+  // Real GPS Tracking - only active on this screen and if NOT in mock mode
+  useLocationTracking(tripId, !MOCK_MODE);
 
   // Revert to manual state/effects as per user's earlier monolithic design
   const lastLoc = tripRedux.liveLocation;
@@ -165,11 +172,12 @@ const LiveTrackingScreen: React.FC = () => {
       const timer = setTimeout(() => {
         setNearDestination(true);
         // Trigger navigation automatically after 10 seconds
-        navigation.navigate('Delivery', { trip: tripRedux.tripData });
+        navigation.navigate('Delivery', { trip });
       }, 10000);
       return () => clearTimeout(timer);
     }
   }, [navigation, tripRedux.tripData]);
+
 
   const pickup = {
     latitude:  tripRedux.sourceLatitude       ?? 30.3165,
@@ -254,6 +262,11 @@ const LiveTrackingScreen: React.FC = () => {
     ]);
     return () => notificationService.stop();
   }, [pickup.latitude, pickup.longitude, dest.latitude, dest.longitude]);
+
+  if (!tripId) {
+    console.warn('[LiveTrackingScreen] No tripId found in Redux');
+    return null;
+  }
 
   return (
     <View style={styles.root}>
@@ -369,7 +382,7 @@ const LiveTrackingScreen: React.FC = () => {
         </View>
 
         {nearDestination && (
-          <TouchableOpacity style={styles.arriveBtn} onPress={() => navigation.navigate('Delivery', { trip: tripRedux.tripData })}>
+          <TouchableOpacity style={styles.arriveBtn} onPress={() => navigation.navigate('Delivery', { trip })}>
             <Text style={styles.arriveBtnText}>I Have Arrived</Text>
           </TouchableOpacity>
         )}

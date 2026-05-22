@@ -177,19 +177,19 @@ apiClient.interceptors.response.use(
 
     // ── Detailed error logging ──
     if (error.response) {
-      console.error(
+      console.log(
         `[Axios Error] ❌ Status: ${error.response.status} | URL: ${originalRequest?.url}`,
       );
-      console.error('[Axios Error Data]', error.response.data);
+      console.log('[Axios Error Data]', error.response.data);
     } else if (error.request) {
-      console.error(
+      console.log(
         `[Axios Error] ❌ No response received | URL: ${originalRequest?.url}`,
       );
-      console.error(
+      console.log(
         '[Axios Error] Likely causes: expired/malformed token causing server to drop the connection, server crash, or network unavailable.',
       );
     } else {
-      console.error('[Axios Error]', error.message);
+      console.log('[Axios Error]', error.message);
     }
 
     // ── 401: Reactive token refresh ──

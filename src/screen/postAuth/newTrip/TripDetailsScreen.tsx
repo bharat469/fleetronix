@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,10 @@ import { BackArrowIcon, PhoneIcon, LocationIcon } from '../../../assets/svgIcons
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useDispatch } from 'react-redux';
 import { RootStackParamList } from '../../../navigation/types';
 import { useTripBreif, useTripDetails } from '../../../hooks/useTripDetails';
+import { setTripId } from '../../../redux/slices/tripSlice';
 import Config from 'react-native-config';
 
 /** Converts ISO timestamp → 'Apr 20, 2026 · 10:04 AM' */
@@ -36,6 +38,7 @@ const formatDate = (iso?: string | null): string => {
 
 const TripDetailsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const dispatch = useDispatch();
   const route = useRoute<RouteProp<RootStackParamList, 'TripDetails'>>();
   const { tripId, loadNumber, } = route.params || {};
   const mapRef = React.useRef<MapView>(null);
@@ -45,15 +48,16 @@ const TripDetailsScreen = () => {
   const { data: apiBriefData } = useTripBreif(tripId);
 
   // Console log the result
-  React.useEffect(() => {
-    if (apiData) {
-      console.log('✅ [TripDetails API Result]:', apiData);
+  useEffect(() => {
+    if (tripId) {
+      console.log('✅ [TripDetails] Storing tripId in Redux:', tripId);
+      dispatch(setTripId(tripId));
     }
-  }, [apiData]);
+  }, [apiData, apiBriefData]);
 
   const data = { ...apiData, ...apiBriefData }
 
-  console.log('sdhks', data)
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
