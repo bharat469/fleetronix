@@ -39,26 +39,17 @@ import FeedbackScreen from '../screen/postAuth/newTrip/FeedbackScreen';
 import LiveTrackingScreen from '../screen/postAuth/newTrip/LiveTrackingScreen';
 import VerifyDeliveryOtpScreen from '../screen/postAuth/newTrip/VerifyDeliveryOtpScreen';
 import DeliveryScreen from '../screen/postAuth/newTrip/DeliveryScreen';
+import ExpenseDashboardScreen from '../screen/postAuth/expense/ExpenseDashboardScreen';
+import AddExpenseScreen from '../screen/postAuth/expense/AddExpenseScreen';
+import ExpenseSuccessScreen from '../screen/postAuth/expense/ExpenseSuccessScreen';
+import TransporterScreen from '../screen/postAuth/TransporterScreen';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-/**
- * Global component to keep location tracking alive even when LiveTrackingScreen is unmounted.
- */
-const GlobalLocationTracker = () => {
-  const tripId = useSelector((state: RootState) => state.trip.tripId);
-  const status = useSelector((state: RootState) => state.trip.tripData?.status);
-  
-  // Only track if trip is active/started
-  const isTrackingEnabled = status === 'started' || status === 'in_progress';
-  
-  useLocationTracking(tripId, isTrackingEnabled);
-  
-  return null;
-};
+
 
 export const RootNavigator = () => {
   const { userToken, purpose } = useSelector((state: RootState) => state.auth);
@@ -101,7 +92,7 @@ export const RootNavigator = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <GlobalLocationTracker />
+
       <Stack.Navigator
         initialRouteName={userToken && purpose ? 'Home' : 'Onboarding'}
         screenOptions={{ headerShown: false }}
@@ -154,6 +145,10 @@ export const RootNavigator = () => {
             <Stack.Screen name="Rating" component={RatingScreen} />
             <Stack.Screen name="Congratulations" component={CongratulationsScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
+            <Stack.Screen name="ExpenseDashboard" component={ExpenseDashboardScreen} />
+            <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
+            <Stack.Screen name="ExpenseSuccess" component={ExpenseSuccessScreen} />
+            <Stack.Screen name="TransporterScreen" component={TransporterScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>

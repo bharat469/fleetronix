@@ -177,10 +177,113 @@ export const PhoneIcon = (props: SvgProps) => (
     <Path d="M22 16.92V19.92C22 20.4504 21.7893 20.9591 21.4142 21.3342C21.0391 21.7093 20.5304 21.92 20 21.92C18.2309 21.92 16.5057 21.5794 14.89 20.92C13.3852 20.3204 12.0152 19.4623 10.84 18.39C9.72145 17.2625 8.79093 15.9392 8.1 14.49C7.43343 12.9163 7.07844 11.2334 7.05 9.52C7.05 9.00696 7.2514 8.51493 7.61085 8.15236C7.9703 7.78979 8.45783 7.586 8.97 7.58H11.97C12.4419 7.5765 12.8718 7.84882 13.0729 8.27718C13.2739 8.70554 13.2125 9.21591 12.916 9.58431L11.666 11.1443C12.33 12.3384 13.3134 13.3513 14.47 14.04L16.03 12.79C16.3986 12.4933 16.9094 12.4319 17.3377 12.633C17.7661 12.834 18.0383 13.2642 18.035 13.736V16.736C18.035 17.234 17.8373 17.7116 17.4856 18.0632C17.1339 18.4149 16.6563 18.6127 16.1583 18.6127L16.1583 18.6127" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
-export const ProfileIcon = (props: SvgProps) => (
-  <Svg width={props.width || 24} height={props.height || 24} viewBox="0 0 24 24" fill="none" {...props}>
-    <Circle cx="12" cy="12" r="10" stroke={props.color || "#000"} strokeWidth="1.5" />
-    <Path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" stroke={props.color || "#000"} strokeWidth="1.5" />
-    <Path d="M6 18C6 15.7909 8.68629 14 12 14C15.3137 14 18 15.7909 18 18" stroke={props.color || "#000"} strokeWidth="1.5" strokeLinecap="round" />
+export const FilterIcon = (props: SvgProps) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
+
+export const ShoppingIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z" stroke={props.color || "#F59E0B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M3 6H21" stroke={props.color || "#F59E0B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10" stroke={props.color || "#F59E0B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const SubscriptionIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M19 4H5C3.89543 4 3 4.89543 3 6V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V6C21 4.89543 20.1046 4 19 4Z" stroke={props.color || "#8B5CF6"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M16 2V6" stroke={props.color || "#8B5CF6"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M8 2V6" stroke={props.color || "#8B5CF6"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M3 10H21" stroke={props.color || "#8B5CF6"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const FoodIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M18 8V20M18 20H14M18 20H22M14 8V20M2 14L4 2V8L2 14ZM8 2V8M6 2V8M10 2V8M10 14V22" stroke={props.color || "#EF4444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const RedBellIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" fill="#CA2027" stroke="#CA2027" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6981 21.5547 10.4458 21.3031 10.27 21" stroke="#CA2027" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const DocumentIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M14 2V8H20" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M16 13H8M16 17H8M10 9H8" stroke={props.color || "#CC2B2B"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const PaperclipIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.82-2.82l8.49-8.49" stroke={props.color || "#9CA3AF"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const CloseIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M18 6L6 18M6 6L18 18" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const DownloadIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M7 10L12 15M12 15L17 10M12 15V3" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const ShareIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M4 12V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V12M16 6L12 2M12 2L8 6M12 2V15" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const ProfileIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="12" cy="7" r="4" stroke={props.color || "#000"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+export const TransporterIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path
+      d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+      stroke={props.color || '#E67E22'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx="9"
+      cy="7"
+      r="4"
+      stroke={props.color || '#E67E22'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M23 21v-2a4 4 0 0 0-3-3.87"
+      stroke={props.color || '#E67E22'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M16 3.13a4 4 0 0 1 0 7.75"
+      stroke={props.color || '#E67E22'}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+

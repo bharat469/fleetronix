@@ -1,4 +1,7 @@
 export interface Trip {
+  total_trip_cost: string;
+  item_weight: any;
+  customer_mobile: string;
   weight: string;
   price: string;
   truck_type: string;

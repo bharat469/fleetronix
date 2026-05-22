@@ -17,9 +17,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { setActiveTripData, setOtpError } from '../../../redux/slices/tripSlice';
 import { useStartTrip } from '../../../hooks/useStartTrip';
+import { Trip } from '../../../types/trip';
 import Config from 'react-native-config';
 import Geolocation from 'react-native-geolocation-service';
 import { getDistance } from 'geolib';
+import { COLORS } from '../../../helpers/values/colors';
 
 const GOOGLE_API_KEY = Config.GOOGLE_MAPS_API_KEY ?? '';
 
@@ -74,12 +76,14 @@ const Pill = ({ label, value, color, bg }: any) => (
 const StartTripScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'StartTrip'>>();
+  const tripRedux = useSelector((state: RootState) => state.trip);
   const { trip } = route.params;
-  const dispatch = useDispatch();
+  const tripId = tripRedux?.tripId;
+
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
 
-  const tripRedux = useSelector((state: RootState) => state.trip);
+
   const {
     verifyOtpMutation,
     startTripMutation,
@@ -104,17 +108,21 @@ const StartTripScreen = () => {
   const dstLat = (tripRedux.destinationLatitude ?? parseFloat(trip.destination_latitude as any)) || 28.540;
   const dstLng = (tripRedux.destinationLongitude ?? parseFloat(trip.destination_longitude as any)) || 77.190;
 
-  useEffect(() => {
-    dispatch(setActiveTripData(trip as any));
-  }, []);
+  const distanceInMeters = getDistance(
+    { latitude: srcLat, longitude: srcLng },
+    { latitude: dstLat, longitude: dstLng }
+  );
+  const calculatedDistance = (distanceInMeters / 1000).toFixed(1) + ' km';
+
+
 
   // Initial navigation check
   useEffect(() => {
-    const tripId = trip.trip_id ?? trip.id ?? '';
+    const tripId = trip.trip_id || trip.id || tripRedux.tripId || '';
     if (trip?.pickup_code_verified) {
-      navigation.replace('LiveTracking', { tripId });
+      navigation.replace('LiveTracking', { trip });
     } else if (trip?.status === 'started') {
-      navigation.replace('LiveTracking', { tripId });
+      navigation.replace('LiveTracking', { trip });
     }
   }, []);
 
@@ -130,7 +138,7 @@ const StartTripScreen = () => {
         const distance = getDistance({ latitude, longitude }, { latitude: srcLat, longitude: srcLng });
         if (distance <= NEAR_DISTANCE) {
           // Transition to LiveTracking once near and trip is "active"
-          navigation.replace('LiveTracking', { tripId: trip.trip_id ?? trip.id ?? '' });
+          navigation.replace('LiveTracking', { trip });
         }
       },
       (err) => console.warn(err),
@@ -164,7 +172,11 @@ const StartTripScreen = () => {
     );
   }, [trip]);
 
-  const isOtpVerified = tripRedux.tripData?.pickup_code_verified;
+  const isOtpVerified = trip?.pickup_code_verified;
+  if (!tripId || !trip) {
+    if (!tripId) console.warn('[StartTripScreen] No active tripId in Redux');
+    return null;
+  }
 
   return (
     <View style={styles.container}>
@@ -204,9 +216,9 @@ const StartTripScreen = () => {
         </View>
 
         <View style={styles.statsGrid}>
-          <Pill label="Total Distance" value={trip.distance || '120 km'} color="#CA2027" bg="#FFF5F5" />
-          <Pill label="Weight" value={trip.weight || '12 Tons'} color="#4CAF50" bg="#E8F5E9" />
-          <Pill label="Price" value={`₹${trip.price || '5000'}`} color="#2196F3" bg="#E3F2FD" />
+          <Pill label="Total Distance" value={calculatedDistance} color="#CA2027" bg="#FFF5F5" />
+          <Pill label="Weight" value={trip.item_weight.total_weight || '12 Tons'} color="#4CAF50" bg="#E8F5E9" />
+          <Pill label="Price" value={`₹${trip.total_trip_cost || '5000'}`} color="#2196F3" bg="#E3F2FD" />
           <Pill label="Vehicle" value={trip.truck_type || 'Open Truck'} color="#9C27B0" bg="#F3E5F5" />
         </View>
 

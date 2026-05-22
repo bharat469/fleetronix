@@ -80,16 +80,8 @@ const tripSlice = createSlice({
   reducers: {
     setActiveTripData: (state, action: PayloadAction<Record<string, any>>) => {
       const d = action.payload;
-      state.tripData       = d;
-      state.tripId         = d.trip_id ?? d.id ?? null;
-      state.loadNumber     = d.load_number ?? d.loadNumber ?? null;
-      state.driverName     = d.driver_name ?? null;
-      state.driverPhoto    = d.driver_photo_url ?? d.image ?? null;
-      state.driverMobile   = d.driver_mobile ?? d.shipper_mobile ?? null;
-      state.sourceLatitude      = parseFloat(d.source_latitude)      || null;
-      state.sourceLongitude     = parseFloat(d.source_longitude)     || null;
-      state.destinationLatitude  = parseFloat(d.destination_latitude)  || null;
-      state.destinationLongitude = parseFloat(d.destination_longitude) || null;
+      state.tripId = d.trip_id ?? d.id ?? null;
+      // Removed saving other fields as per request
     },
 
     setOtpVerified: (state) => {
@@ -115,6 +107,10 @@ const tripSlice = createSlice({
       state.liveLocation = action.payload;
     },
 
+    setTripId: (state, action: PayloadAction<string>) => {
+      state.tripId = action.payload;
+    },
+
     resetTrip: () => initialState,
   },
 });
@@ -126,6 +122,7 @@ export const {
   clearOtpError,
   setLifecycle,
   setLiveLocation,
+  setTripId,
   resetTrip,
 } = tripSlice.actions;
 

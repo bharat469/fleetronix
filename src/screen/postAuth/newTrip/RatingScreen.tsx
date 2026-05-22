@@ -15,22 +15,32 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { getFontFamily } from '../../../helpers/fonts';
 import { useMutation } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { postFeedback } from '../../../services/tripApi';
+import { resetTrip } from '../../../redux/slices/tripSlice';
 import { ActivityIndicator, Alert } from 'react-native';
+import { RouteProp, useRoute } from '@react-navigation/native';
 
 const RatingScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Rating'>>();
+  const dispatch = useDispatch();
   const tripRedux  = useSelector((state: RootState) => state.trip);
   const token      = useSelector((state: RootState) => state.auth.accessToken);
-  const tripId     = tripRedux.tripId ?? '';
+
+  const { trip } = route.params;
+  const tripId = tripRedux.tripId || trip?.trip_id;
+
+
+
   const [rating, setRating] = useState(4);
 
   const { mutate, isPending } = useMutation({
     mutationFn: postFeedback,
     onSuccess: () => {
-      navigation.navigate('Congratulations');
+      dispatch(resetTrip());
+      navigation.navigate('Congratulations', { trip });
     },
     onError: (error: Error) => {
       Alert.alert('Feedback Failed', error.message ?? 'Something went wrong.');
@@ -46,6 +56,11 @@ const RatingScreen = () => {
       comment: rating >= 4 ? 'Great delivery experience' : 'Average experience'
     });
   };
+
+  if (!tripId || !trip) {
+    console.warn('[RatingScreen] No tripId found in Redux or props');
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,10 +78,10 @@ const RatingScreen = () => {
         <View style={styles.feedbackCard}>
           <View style={styles.profileSection}>
             <Image 
-              source={{ uri: tripRedux.tripData?.driver_photo_url || tripRedux.tripData?.image || 'https://randomuser.me/api/portraits/men/1.jpg' }} 
+              source={{ uri: trip?.driver_photo_url || trip?.image || 'https://randomuser.me/api/portraits/men/1.jpg' }} 
               style={styles.profilePic} 
             />
-            <Text style={styles.userName}>{tripRedux.tripData?.driver_name || 'Driver'}</Text>
+            <Text style={styles.userName}>{trip?.driver_name || 'Driver'}</Text>
             <Text style={styles.userTier}>2nd Tier</Text>
           </View>
 

@@ -23,6 +23,7 @@ import { ActivityIndicator } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { setTokens } from '../../redux/slices/authSlice';
 import { storage } from '../../helpers/asyncHelper';
+import { getFcmToken, getDeviceId } from '../../helpers/tokenHelper';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OTPVerify'>;
 
@@ -89,13 +90,23 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
     return () => clearInterval(interval);
   }, []);
 
-
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentOtp.length === 4) {
+      const fcmToken = await getFcmToken();
+      const deviceId = await getDeviceId();
+      console.log('ajksajshas', fcmToken, deviceId)
+
+      const payload = {
+        mobile: phoneNumber,
+        otp: currentOtp,
+        fcm_token: fcmToken || undefined,
+        device_id: deviceId,
+      };
+
       if (purpose === 'register') {
-        registerMutate({ mobile: phoneNumber, otp: currentOtp });
+        registerMutate(payload);
       } else {
-        loginMutate({ mobile: phoneNumber, otp: currentOtp });
+        loginMutate(payload);
       }
     }
   };

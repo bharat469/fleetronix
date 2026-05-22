@@ -9,33 +9,50 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../helpers/values/colors';
 import { getFontFamily } from '../../../helpers/fonts';
 import { moderateScale, scale, verticalScale } from '../../../helpers/dimension';
-import SvgIcon from '../../../helpers/svgComponents';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import OTPInput from '../../../components/otpComponents';
 import { useMutation } from '@tanstack/react-query';
 import { verifyDeliveryOtp } from '../../../services/tripApi';
+import BottomSheetComponent from '../../../components/bottomsheet';
+import ErrorBottomSheet from '../../../components/ErrorBottomSheet';
 import { BackArrowIcon } from '../../../assets/svgIcons';
+import { Trip } from '../../../types/trip';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerifyDeliveryOtp'>;
 
 const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
   const { t } = useTranslation();
-  const { tripId } = route.params;
+  const tripRedux = useSelector((state: RootState) => state.trip);
+  const { trip } = route.params;
+  const tripId = tripRedux.tripId || trip?.trip_id;
+
+  console.log('sdjhjklsd', trip)
+
   const [currentOtp, setCurrentOtp] = useState('');
+  const [isOtpError, setIsOtpError] = useState(false);
+  const [otpErrorMessage, setOtpErrorMessage] = useState('');
+
+  const resetOtpError = () => {
+    setIsOtpError(false);
+    setOtpErrorMessage('');
+  };
 
   const { mutate, isPending } = useMutation({
     mutationFn: verifyDeliveryOtp,
     onSuccess: () => {
-      navigation.navigate('ConfirmDelivery', { tripId });
+      navigation.navigate('ConfirmDelivery', { trip });
     },
     onError: (error: Error) => {
-      Alert.alert('Verification Failed', error.message ?? 'Invalid OTP. Please try again.');
+      setOtpErrorMessage(error.message ?? 'Invalid OTP. Please try again.');
+      setIsOtpError(true);
     },
   });
 
@@ -44,6 +61,11 @@ const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
       mutate({ tripId, otp: currentOtp });
     }
   };
+
+  if (!tripId || !trip) {
+    console.warn('[VerifyDeliveryOtpScreen] No trip data found in Redux');
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -92,6 +114,14 @@ const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <BottomSheetComponent isVisible={isOtpError} onBackdropPress={resetOtpError}>
+        <ErrorBottomSheet 
+          title="Invalid OTP"
+          message={otpErrorMessage ?? 'The OTP you entered is incorrect. Please try again.'}
+          onClose={resetOtpError} 
+        />
+      </BottomSheetComponent>
     </SafeAreaView>
   );
 };

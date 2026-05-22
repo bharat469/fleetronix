@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
 import { BackArrowIcon } from '../../../assets/svgIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,9 +33,14 @@ const REASONS = [
 
 const FeedbackScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Feedback'>>();
   const tripRedux  = useSelector((state: RootState) => state.trip);
   const token      = useSelector((state: RootState) => state.auth.accessToken);
-  const tripId     = tripRedux.tripId ?? '';
+
+  const { trip } = route.params;
+  const tripId = tripRedux.tripId || trip.trip_id;
+
+
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [comment, setComment] = useState('');
 
@@ -66,6 +71,11 @@ const FeedbackScreen = () => {
       setSelectedReasons([...selectedReasons, reason]);
     }
   };
+
+  if (!tripId || !trip) {
+    console.warn('[FeedbackScreen] No tripId found in Redux or props');
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

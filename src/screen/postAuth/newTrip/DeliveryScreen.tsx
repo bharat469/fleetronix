@@ -15,13 +15,22 @@ import { scale, verticalScale, moderateScale } from '../../../helpers/dimension'
 import SvgIcon from '../../../helpers/svgComponents';
 import SlideToAction from '../../../components/SlideToAction';
 import { COLORS } from '../../../helpers/values/colors';
+import { BackArrowIcon } from '../../../assets/svgIcons';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Delivery'>;
 
 const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
+  const tripRedux = useSelector((state: RootState) => state.trip);
   const { trip } = route.params;
+  const tripId = tripRedux.tripId || trip?.trip_id;
+
+
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(moderateScale(50))).current;
+
 
   useEffect(() => {
     Animated.parallel([
@@ -30,15 +39,16 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
     ]).start();
   }, []);
 
+
   const handleCompleteSlide = () => {
-    navigation.navigate('VerifyDeliveryOtp', { tripId: trip.trip_id ?? trip.id ?? '' });
+    navigation.navigate('VerifyDeliveryOtp', { trip });
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <SvgIcon name="back" width={24} height={24} color="#111" />
+          <BackArrowIcon />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Delivery Point</Text>
       </View>
@@ -46,12 +56,12 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.arrivalCard}>
           <View style={styles.successIconWrapper}>
-            <View style={styles.successIcon}>
-              <Text style={styles.iconText}>📍</Text>
-            </View>
+
+            <SvgIcon name='locationSmallIcon' width={moderateScale(40)} height={moderateScale(40)} />
+
           </View>
-          <Text style={styles.arrivalTitle}>You have arrived!</Text>
           <Text style={styles.arrivalSubtitle}>You are within 200m of the delivery location.</Text>
+          <Text style={styles.arrivalTitle}>You have arrived!</Text>
         </View>
 
         <View style={styles.customerCard}>

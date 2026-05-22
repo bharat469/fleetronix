@@ -6,6 +6,7 @@ interface bottomComponentprops {
     onBackdropPress?: () => void;
     onBackButtonPress?: () => void;
     children: ReactNode;
+    style?: any;
 }
 
 const BottomSheetComponent: React.FC<bottomComponentprops> = ({
@@ -13,12 +14,13 @@ const BottomSheetComponent: React.FC<bottomComponentprops> = ({
     onBackButtonPress,
     onBackdropPress,
     children,
+    style,
 }) => {
     return (
         <Modal
             isVisible={isVisible}
             onBackdropPress={onBackdropPress}
-            style={{ margin: 0 }}
+            style={[{ margin: 0 }, style]}
             onBackButtonPress={onBackButtonPress}
             animationIn="slideInUp"
             animationOut="slideOutDown"

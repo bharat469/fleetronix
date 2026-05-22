@@ -412,3 +412,51 @@ export const postTripFeedback = async ({
     throw new Error(msg);
   }
 };
+
+export interface PublicRequestsParams {
+  show_responded: boolean;
+  page: number;
+  per_page: number;
+  sort_order: 'asc' | 'desc';
+}
+
+export const fetchPublicRequests = async (params: Partial<PublicRequestsParams> = {}): Promise<any> => {
+  const {
+    show_responded = false,
+    page = 1,
+    per_page = 20,
+    sort_order = 'desc',
+  } = params;
+  const url = `driver/trips/public-requests?show_responded=${show_responded}&page=${page}&per_page=${per_page}&sort_order=${sort_order}`;
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] GET Public Requests List`);
+
+  const response = await apiClient.get(url);
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] Public Requests Success`);
+  return response.data;
+};
+
+export const respondToTripRequest = async (
+  requestNumber: string,
+  action: 'accept' | 'decline',
+  notes: string = ''
+): Promise<any> => {
+  const url = `driver/trips/requests/${requestNumber}/respond`;
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] POST respond request=${requestNumber} action=${action}`);
+  const response = await apiClient.post(url, { action, notes });
+  return response.data;
+};
+
+export interface TripRequestsParams {
+  status: 'pending' | 'accepted' | 'rejected';
+  page: number;
+  per_page: number;
+}
+
+export const fetchTripRequests = async (params: TripRequestsParams): Promise<any> => {
+  const { status, page = 1, per_page = 20 } = params;
+  const url = `driver/trips/requests?status=${status}&page=${page}&per_page=${per_page}`;
+  console.log(`[${new Date().toLocaleTimeString()}] [tripApi] GET Trip Requests status=${status} page=${page}`);
+  const response = await apiClient.get(url);
+  return response.data;
+};
+

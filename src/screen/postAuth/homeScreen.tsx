@@ -21,7 +21,7 @@ import {
   MoneyBagIcon,
   SupportIcon,
   RoadIcon,
-  LedgerIcon,
+  TransporterIcon,
 } from '../../assets/svgIcons';
 
 import LinearGradient from 'react-native-linear-gradient';
@@ -206,6 +206,7 @@ const HomeScreen = () => {
               subtitle={t('trip_card_desc')}
               Icon={MoneyBagIcon}
               iconBgColor="rgba(0, 200, 83, 0.1)"
+              onPress={() => navigation.navigate('ExpenseDashboard')}
             />
             <ActionCard
               title={t('support')}
@@ -220,10 +221,11 @@ const HomeScreen = () => {
               iconBgColor="rgba(141, 110, 99, 0.1)"
             />
             <ActionCard
-              title={t('ledger')}
-              subtitle={t('trip_card_desc')}
-              Icon={LedgerIcon}
-              iconBgColor="rgba(255, 204, 128, 0.2)"
+              title={t('transporter')}
+              subtitle={t('transporter_desc')}
+              Icon={TransporterIcon}
+              iconBgColor="rgba(255, 152, 0, 0.15)"
+              onPress={() => navigation.navigate('TransporterScreen')}
             />
           </View>
           <View style={styles.sliderIndicatorContainer}>
