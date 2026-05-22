@@ -7,7 +7,9 @@ import {
   StatusBar,
   TouchableOpacity,
   Image,
+  BackHandler,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
 import { getFontFamily } from '../../../helpers/fonts';
@@ -31,6 +33,21 @@ import BottomSheetComponent from '../../../components/bottomsheet';
 const ExpenseDashboardScreen = (props:any) => {
   const [activeFilter, setActiveFilter] = React.useState('Today');
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        props.navigation.navigate('Home');
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () => {
+        subscription.remove();
+      };
+    }, [props.navigation])
+  );
   
   const now = new Date();
   const [currentFilters, setCurrentFilters] = React.useState<FilterState>({
@@ -92,7 +109,7 @@ const ExpenseDashboardScreen = (props:any) => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={() => props.navigation.goBack()} style={styles.backBtn}>
+            <TouchableOpacity onPress={() => props.navigation.navigate('Home')} style={styles.backBtn}>
               <BackArrowIcon color="#111827" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileContainer}>
