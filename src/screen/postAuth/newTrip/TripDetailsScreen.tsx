@@ -8,6 +8,7 @@ import {
   StatusBar,
   Image,
   Dimensions,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -55,6 +56,20 @@ const TripDetailsScreen = () => {
     }
   }, [apiData, apiBriefData]);
 
+  useEffect(() => {
+    const backAction = () => {
+      navigation.navigate('Home');
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [navigation]);
+
   const data = { ...apiData, ...apiBriefData }
 
 
@@ -64,10 +79,10 @@ const TripDetailsScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backBtn}>
           <BackArrowIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>#{loadNumber}</Text>
+        <Text style={styles.headerTitle}>#{data.load_number}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -112,13 +127,14 @@ const TripDetailsScreen = () => {
 
         {/* Truck Info Section (Red Box) */}
         <View style={styles.truckInfoBox}>
-          <Text style={styles.boxTitle}>Truck info</Text>
+          <Text style={styles.boxTitle}>Trip Info</Text>
           <TableInfoRow label="Vehicle Number" value={data?.vehicle_number || 'N/A'} />
           <TableInfoRow label="Owner Name" value={data?.owner_name || 'Fleetronix'} />
-          <TableInfoRow label="Driver Name" value={data?.driver_name || 'N/A'} />
-          <TableInfoRow label="Driver Mobile" value={data?.driver_mobile || 'N/A'} />
+          <TableInfoRow label="Registering authority" value={data?.registering_authority || 'N/A'} />
+          <TableInfoRow label="Fuel Type" value={data?.fuel_type || 'N/A'} />
+          <TableInfoRow label="Emission Norms" value={data?.emission_norm || 'N/A'} />
+          <TableInfoRow label="Vehicle Age" value={data?.vehicle_age || 'N/A'} />
           <TableInfoRow label="Status" value={data?.status || 'N/A'} />
-          <TableInfoRow label="Assigned At" value={formatDate(data?.assigned_at)} />
         </View>
 
         {/* Map Section */}
@@ -236,7 +252,7 @@ const TripDetailsScreen = () => {
             activeOpacity={0.8}
             onPress={() => navigation.navigate('StartTrip', { trip: data })}
           >
-            <Text style={styles.startBtnText}>Start Trip</Text>
+            <Text style={styles.startBtnText}>{(data?.pickup_code_verified === true || data?.pickup_code_verified === 1 || data?.pickup_code_verified === 'true' || data?.status === 'ongoing') ? 'Continue' : 'Start Trip'}</Text>
           </TouchableOpacity>
         )}
 

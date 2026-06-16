@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,9 @@ import { RootStackParamList } from '../../../navigation/types';
 import { getFontFamily } from '../../../helpers/fonts';
 import { COLORS } from '../../../helpers/values/colors';
 import { useMutation } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
+import { setTripId } from '../../../redux/slices/tripSlice';
 import { postTripFeedback } from '../../../services/tripApi';
 import { ActivityIndicator, Alert } from 'react-native';
 
@@ -36,9 +37,16 @@ const FeedbackScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'Feedback'>>();
   const tripRedux  = useSelector((state: RootState) => state.trip);
   const token      = useSelector((state: RootState) => state.auth.accessToken);
+  const dispatch = useDispatch();
 
   const { trip } = route.params;
-  const tripId = tripRedux.tripId || trip.trip_id;
+  const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
+
+  useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
 
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
@@ -93,21 +101,33 @@ const FeedbackScreen = () => {
           <Text style={styles.cardTitle}>Feedback</Text>
           
           <View style={styles.reasonsContainer}>
-            {REASONS.map((reason, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={[
-                  styles.reasonItem,
-                  selectedReasons.includes(reason) && styles.selectedReason
-                ]} 
-                onPress={() => toggleReason(reason)}
-              >
-                <Text style={[
-                  styles.reasonText,
-                  selectedReasons.includes(reason) && styles.selectedReasonText
-                ]}>{reason}</Text>
-              </TouchableOpacity>
-            ))}
+            {REASONS.map((reason, index) => {
+              const isSelected = selectedReasons.includes(reason);
+              return (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[
+                    styles.reasonItem,
+                    isSelected && styles.selectedReason
+                  ]} 
+                  onPress={() => toggleReason(reason)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.reasonRow}>
+                    <Text style={[
+                      styles.reasonText,
+                      isSelected && styles.selectedReasonText
+                    ]}>{reason}</Text>
+                    <View style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxActive
+                    ]}>
+                      {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <TextInput
@@ -183,20 +203,47 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     paddingVertical: verticalScale(12),
     paddingHorizontal: scale(15),
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: 'transparent',
   },
   selectedReason: {
     borderColor: '#1E1B4B',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFEAEA',
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   reasonText: {
+    flex: 1,
     fontSize: moderateScale(12),
     fontFamily: getFontFamily('ApercuPro', 'Regular'),
     color: '#374151',
+    marginRight: scale(10),
   },
   selectedReasonText: {
     fontFamily: getFontFamily('ApercuPro', 'Bold'),
+    color: '#CA2027',
+  },
+  checkbox: {
+    width: scale(18),
+    height: scale(18),
+    borderRadius: scale(9),
+    borderWidth: 1.5,
+    borderColor: '#CCCCCC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  checkboxActive: {
+    borderColor: '#1E1B4B',
+    backgroundColor: '#1E1B4B',
+  },
+  checkMark: {
+    color: 'white',
+    fontSize: moderateScale(10),
+    fontWeight: 'bold',
   },
   commentInput: {
     backgroundColor: 'white',

@@ -10,59 +10,67 @@ interface SpendChartProps {
   data?: any;
 }
 
-const SpendChart: React.FC<SpendChartProps> = ({ activeFilter, setActiveFilter, data }) => {
-  const chartWidth = SCREEN.WIDTH - scale(40);
-  const chartHeight = verticalScale(120);
+const chartWidth = SCREEN.WIDTH - scale(40);
+const chartHeight = verticalScale(120);
 
-  // Different paths for different filters to show "fluctuation"
-  const getPath = () => {
-    switch (activeFilter) {
-      case 'Week':
-        return `M 0 ${chartHeight * 0.4} 
-                C ${chartWidth * 0.2} ${chartHeight * 0.8}, ${chartWidth * 0.4} ${chartHeight * 0.2}, ${chartWidth * 0.6} ${chartHeight * 0.6} 
-                S ${chartWidth * 0.8} ${chartHeight * 0.1}, ${chartWidth} ${chartHeight * 0.4}`;
-      case 'Month':
-        return `M 0 ${chartHeight * 0.8} 
-                C ${chartWidth * 0.1} ${chartHeight * 0.9}, ${chartWidth * 0.3} ${chartHeight * 0.5}, ${chartWidth * 0.5} ${chartHeight * 0.7} 
-                S ${chartWidth * 0.8} ${chartHeight * 0.2}, ${chartWidth} ${chartHeight * 0.6}`;
-      case 'Year':
-        return `M 0 ${chartHeight * 0.5} 
-                C ${chartWidth * 0.2} ${chartHeight * 0.2}, ${chartWidth * 0.4} ${chartHeight * 0.8}, ${chartWidth * 0.6} ${chartHeight * 0.3} 
-                S ${chartWidth * 0.8} ${chartHeight * 0.9}, ${chartWidth} ${chartHeight * 0.4}`;
-      default: // Today
-        return `M 0 ${chartHeight * 0.7} 
-                C ${chartWidth * 0.1} ${chartHeight * 0.6}, ${chartWidth * 0.15} ${chartHeight * 0.9}, ${chartWidth * 0.25} ${chartHeight * 0.8} 
-                S ${chartWidth * 0.35} ${chartHeight * 0.4}, ${chartWidth * 0.45} ${chartHeight * 0.7}
-                S ${chartWidth * 0.6} ${chartHeight * 0.9}, ${chartWidth * 0.75} ${chartHeight * 0.3}
-                S ${chartWidth * 0.9} ${chartHeight * 0.6}, ${chartWidth} ${chartHeight * 0.5}`;
-    }
+const SpendChart: React.FC<SpendChartProps> = ({ activeFilter, setActiveFilter, data }) => {
+  const dataPoints = data?.data_points || [];
+  const amounts = dataPoints.map((dp: any) => dp.amount || 0);
+  const maxAmount = Math.max(...amounts, 1);
+
+  const getDynamicPath = () => {
+    if (dataPoints.length === 0) return '';
+    
+    return dataPoints.reduce((path: string, dp: any, index: number) => {
+      const x = dataPoints.length > 1 ? (index / (dataPoints.length - 1)) * chartWidth : 0;
+      const y = chartHeight - ((dp.amount / maxAmount) * (chartHeight - verticalScale(20))) - verticalScale(10);
+      
+      if (index === 0) {
+        return `M ${x} ${y}`;
+      }
+      return `${path} L ${x} ${y}`;
+    }, '');
   };
 
-  const d = getPath();
+  const d = getDynamicPath();
+  const hasData = dataPoints.length > 0 && dataPoints.some((item: any) => item.amount > 0);
 
   return (
     <View style={styles.container}>
-      <Svg width={chartWidth} height={chartHeight}>
-        <Defs>
-          <SvgGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor="#CA2027" stopOpacity="0.2" />
-            <Stop offset="100%" stopColor="#CA2027" stopOpacity="0" />
-          </SvgGradient>
-        </Defs>
-        
-        <Path
-          d={`${d} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`}
-          fill="url(#gradient)"
-        />
-        
-        <Path
-          d={d}
-          stroke="#CA2027"
-          strokeWidth="3"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </Svg>
+      {hasData ? (
+        <View>
+          <Svg width={chartWidth} height={chartHeight}>
+            <Defs>
+              <SvgGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <Stop offset="0%" stopColor="#CA2027" stopOpacity="0.2" />
+                <Stop offset="100%" stopColor="#CA2027" stopOpacity="0" />
+              </SvgGradient>
+            </Defs>
+            
+            <Path
+              d={`${d} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`}
+              fill="url(#gradient)"
+            />
+            
+            <Path
+              d={d}
+              stroke="#CA2027"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </Svg>
+          <View style={styles.labelsContainer}>
+            <Text style={styles.axisLabel}>{dataPoints[0]?.label}</Text>
+            <Text style={styles.axisLabel}>{dataPoints[Math.floor(dataPoints.length / 2)]?.label}</Text>
+            <Text style={styles.axisLabel}>{dataPoints[dataPoints.length - 1]?.label}</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.noDataContainer}>
+          <Text style={styles.noDataText}>No spend data available for this period</Text>
+        </View>
+      )}
       
       <View style={styles.filterContainer}>
         {['Today', 'Week', 'Month', 'Year'].map((item) => (
@@ -84,6 +92,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(20),
     marginVertical: scale(10),
     alignItems: 'center',
+  },
+  noDataContainer: {
+    width: chartWidth,
+    height: chartHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  noDataText: {
+    fontSize: moderateScale(13),
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+    color: '#9CA3AF',
+  },
+  labelsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: chartWidth,
+    marginTop: scale(5),
+    paddingHorizontal: scale(5),
+  },
+  axisLabel: {
+    fontSize: moderateScale(10),
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+    color: '#9CA3AF',
   },
   filterContainer: {
     flexDirection: 'row',

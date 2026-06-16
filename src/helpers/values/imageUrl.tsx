@@ -83,6 +83,7 @@ export const SVG_Url = {
   receivedExpenses: require('../../assets/images/svg/expense/recevied.svg').default,
   subscribeExpese: require('../../assets/images/svg/expense/subscribe.svg').default,
   shoppingIconExpense: require('../../assets/images/svg/expense/shop.svg').default,
+  fuelIconExpense: require('../../assets/images/svg/expense/fuel.svg').default,
   filterExpense: require('../../assets/images/svg/expense/filter.svg').default,
 
 }

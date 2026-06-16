@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   Animated, TextInput,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -15,7 +16,7 @@ import ErrorBottomSheet from '../../../components/ErrorBottomSheet';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
-import { setActiveTripData, setOtpError } from '../../../redux/slices/tripSlice';
+import { setActiveTripData, setOtpError, setTripId } from '../../../redux/slices/tripSlice';
 import { useStartTrip } from '../../../hooks/useStartTrip';
 import { Trip } from '../../../types/trip';
 import Config from 'react-native-config';
@@ -78,7 +79,28 @@ const StartTripScreen = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'StartTrip'>>();
   const tripRedux = useSelector((state: RootState) => state.trip);
   const { trip } = route.params;
-  const tripId = tripRedux?.tripId;
+  const tripId = tripRedux?.tripId || trip?.trip_id || trip?.id;
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
+
+  useEffect(() => {
+    const backAction = () => {
+      navigation.navigate('Home');
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [navigation]);
 
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
@@ -103,10 +125,10 @@ const StartTripScreen = () => {
   const watchId = useRef<number | null>(null);
   const NEAR_DISTANCE = 200;
 
-  const srcLat = (tripRedux.sourceLatitude ?? parseFloat(trip.source_latitude as any)) || 28.6139;
-  const srcLng = (tripRedux.sourceLongitude ?? parseFloat(trip.source_longitude as any)) || 77.2090;
-  const dstLat = (tripRedux.destinationLatitude ?? parseFloat(trip.destination_latitude as any)) || 28.540;
-  const dstLng = (tripRedux.destinationLongitude ?? parseFloat(trip.destination_longitude as any)) || 77.190;
+  const srcLat = (tripRedux.sourceLatitude ?? parseFloat(trip?.source_latitude as any)) || 28.6139;
+  const srcLng = (tripRedux.sourceLongitude ?? parseFloat(trip?.source_longitude as any)) || 77.2090;
+  const dstLat = (tripRedux.destinationLatitude ?? parseFloat(trip?.destination_latitude as any)) || 28.540;
+  const dstLng = (tripRedux.destinationLongitude ?? parseFloat(trip?.destination_longitude as any)) || 77.190;
 
   const distanceInMeters = getDistance(
     { latitude: srcLat, longitude: srcLng },
@@ -118,7 +140,7 @@ const StartTripScreen = () => {
 
   // Initial navigation check
   useEffect(() => {
-    const tripId = trip.trip_id || trip.id || tripRedux.tripId || '';
+    const tripId = trip?.trip_id || trip?.id || tripRedux.tripId || '';
     if (trip?.pickup_code_verified) {
       navigation.replace('LiveTracking', { trip });
     } else if (trip?.status === 'started') {
@@ -154,25 +176,33 @@ const StartTripScreen = () => {
 
   const handleConfirm = useCallback(() => {
     if (currentOtp.length === 4) {
-      verifyOtpMutation.mutate({ tripId: trip.trip_id ?? trip.id ?? '', otp: currentOtp });
+      verifyOtpMutation.mutate({ tripId: trip?.trip_id ?? trip?.id ?? '', otp: currentOtp });
     }
   }, [currentOtp, trip]);
 
   const handleStartTrip = useCallback(async () => {
     setIsWatching(true);
-    const tripId = trip.trip_id ?? trip.id ?? '';
+    const tripId = trip?.trip_id ?? trip?.id ?? '';
     Geolocation.getCurrentPosition(
       (p) => {
         const coords = { latitude: p.coords.latitude, longitude: p.coords.longitude };
         setDriverLoc(coords);
-        startTripMutation.mutate({ tripId, coords });
+        startTripMutation.mutate({ tripId, coords, trip });
       },
-      () => startTripMutation.mutate({ tripId, coords: { latitude: 0, longitude: 0 } }),
+      () => startTripMutation.mutate({ tripId, coords: { latitude: 0, longitude: 0 }, trip }),
       { accuracy: { android: 'high', ios: 'best' } }
     );
   }, [trip]);
 
-  const isOtpVerified = trip?.pickup_code_verified;
+  const isPreVerified = 
+    trip?.pickup_code_verified === true ||
+    trip?.pickup_code_verified === 1 ||
+    trip?.pickup_code_verified === 'true' ||
+    trip?.status === 'ongoing' ||
+    tripRedux?.lifecycle === 'started' ||
+    tripRedux?.lifecycle === 'in_transit';
+
+  const isOtpVerified = isPreVerified || tripRedux?.otpVerified === true || tripRedux?.lifecycle === 'otp_verified';
   if (!tripId || !trip) {
     if (!tripId) console.warn('[StartTripScreen] No active tripId in Redux');
     return null;
@@ -204,22 +234,22 @@ const StartTripScreen = () => {
         {driverLoc && <Marker coordinate={driverLoc} title="You" />}
       </MapView>
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Home')}>
         <BackArrowIcon />
       </TouchableOpacity>
 
       <Animated.View style={[styles.bottomCard, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] }) }] }]}>
         <View style={styles.handleBar} />
         <View style={styles.loadIdSection}>
-          <Text style={styles.loadIdText}>LOAD ID: {trip.load_id || 'N/A'}</Text>
-          <Text style={styles.driverNameBig}>{trip.customer_name || 'Pickup'}</Text>
+          <Text style={styles.loadIdText}>LOAD ID: {trip?.load_id || 'N/A'}</Text>
+          <Text style={styles.driverNameBig}>{trip?.customer_name || 'Pickup'}</Text>
         </View>
 
         <View style={styles.statsGrid}>
           <Pill label="Total Distance" value={calculatedDistance} color="#CA2027" bg="#FFF5F5" />
-          <Pill label="Weight" value={trip.item_weight.total_weight || '12 Tons'} color="#4CAF50" bg="#E8F5E9" />
-          <Pill label="Price" value={`₹${trip.total_trip_cost || '5000'}`} color="#2196F3" bg="#E3F2FD" />
-          <Pill label="Vehicle" value={trip.truck_type || 'Open Truck'} color="#9C27B0" bg="#F3E5F5" />
+          <Pill label="Weight" value={trip?.item_weight?.total_weight || trip?.weight || '12 Tons'} color="#4CAF50" bg="#E8F5E9" />
+          <Pill label="Price" value={`₹${trip?.total_trip_cost || '5000'}`} color="#2196F3" bg="#E3F2FD" />
+          <Pill label="Vehicle" value={trip?.truck_type || 'Open Truck'} color="#9C27B0" bg="#F3E5F5" />
         </View>
 
         {isOtpVerified ? (
@@ -233,7 +263,7 @@ const StartTripScreen = () => {
               disabled={isWatching || isLoading}
               onPress={handleStartTrip}
             >
-              {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>{isWatching ? 'En Route...' : 'Start Trip'}</Text>}
+              {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>{isWatching ? 'En Route...' : (isPreVerified ? 'Continue' : 'Start Trip')}</Text>}
             </TouchableOpacity>
           </View>
         ) : (

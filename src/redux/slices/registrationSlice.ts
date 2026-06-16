@@ -7,6 +7,7 @@ interface RegistrationState {
   selectedStates: StateData[];
   licenseImage: Asset | null;
   adharImage: Asset | null;
+  profileImage: Asset | null;
 }
 
 const initialState: RegistrationState = {
@@ -14,6 +15,7 @@ const initialState: RegistrationState = {
   selectedStates: [],
   licenseImage: null,
   adharImage: null,
+  profileImage: null,
 };
 
 const registrationSlice = createSlice({
@@ -50,12 +52,16 @@ const registrationSlice = createSlice({
     setAdharImage: (state, action: PayloadAction<Asset | null>) => {
       state.adharImage = action.payload;
     },
+    setProfileImage: (state, action: PayloadAction<Asset | null>) => {
+      state.profileImage = action.payload;
+    },
     // General
     resetRegistrationData: (state) => {
       state.selectedTrucks = [];
       state.selectedStates = [];
       state.licenseImage = null;
       state.adharImage = null;
+      state.profileImage = null;
     },
   },
 });
@@ -67,6 +73,7 @@ export const {
   toggleStateSelection,
   setLicenseImage,
   setAdharImage,
+  setProfileImage,
   resetRegistrationData,
 } = registrationSlice.actions;
 

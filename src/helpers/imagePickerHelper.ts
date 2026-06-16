@@ -11,6 +11,9 @@ export const pickImageFromLibrary = async (options?: Partial<ImageLibraryOptions
   const defaultOptions: ImageLibraryOptions = {
     mediaType: 'photo',
     selectionLimit: 1,
+    maxWidth: 1200,
+    maxHeight: 1200,
+    quality: 0.8,
     ...options,
   };
 
@@ -27,6 +30,9 @@ export const takePhoto = async (options?: Partial<CameraOptions>): Promise<Image
   const defaultOptions: CameraOptions = {
     mediaType: 'photo',
     saveToPhotos: true,
+    maxWidth: 1200,
+    maxHeight: 1200,
+    quality: 0.8,
     ...options,
   };
 

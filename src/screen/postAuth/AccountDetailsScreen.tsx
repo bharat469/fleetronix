@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,13 +22,13 @@ import { RootState } from '../../redux/store';
 import { useDriverInfo, useUpdateDriver } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { Asset } from 'react-native-image-picker';
+import i18next from 'i18next';
 import { pickImageFromLibrary, takePhoto as takePhotoHelper } from '../../helpers/imagePickerHelper';
 import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import { AlertHelper } from '../../components/common/AlertPopup';
 import {
   BackArrowIcon,
-  SearchIcon,
   EditPenIcon,
   HomeHouseIcon,
   MoreDotsIcon,
@@ -35,12 +36,16 @@ import {
   CloseCircleIcon,
   ShieldCheckIcon,
   ChevronRightIcon,
+  EyeIcon,
+  DownloadIcon,
 } from '../../assets/svgIcons';
 import SvgIcon from '../../helpers/svgComponents';
 import DriverProfileHeader from '../../components/common/DriverProfileHeader';
 
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { useImageSelection } from '../../helpers/useImageSelection';
+import { resolveImageUrl } from '../../helpers/urlHelper';
+import { downloadFile } from '../../helpers/downloadHelper';
 
 const InputField = ({ label, value, onChangeText, keyboardType = 'default', prefix = '', errorKey, errors, setErrors }: any) => (
   <View style={styles.inputContainer}>
@@ -68,7 +73,7 @@ const InputField = ({ label, value, onChangeText, keyboardType = 'default', pref
   </View>
 );
 
-const DocumentItem = ({ label, docName, onPick, onRemove, errorKey, errors }: any) => (
+const DocumentItem = ({ label, docName, onPick, onRemove, onView, onDownload, errorKey, errors }: any) => (
   <View style={styles.inputContainer}>
     <View style={styles.docRow}>
       <Text style={styles.docLabelSide}>{label}</Text>
@@ -89,6 +94,24 @@ const DocumentItem = ({ label, docName, onPick, onRemove, errorKey, errors }: an
         ) : null}
       </View>
     </View>
+
+    {docName && (onView || onDownload) ? (
+      <View style={styles.docActionRow}>
+        {onView && (
+          <TouchableOpacity style={styles.actionBtnOutline} onPress={onView} activeOpacity={0.7}>
+            <EyeIcon color="#CA2027" width={14} height={14} style={styles.actionBtnIcon} />
+            <Text style={styles.actionBtnLabel}>View Document</Text>
+          </TouchableOpacity>
+        )}
+        {onDownload && (
+          <TouchableOpacity style={styles.actionBtnOutline} onPress={onDownload} activeOpacity={0.7}>
+            <DownloadIcon color="#CA2027" width={14} height={14} style={styles.actionBtnIcon} />
+            <Text style={styles.actionBtnLabel}>Download</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ) : null}
+
     {errors[errorKey] ? <Text style={styles.errorText}>{errors[errorKey]}</Text> : null}
   </View>
 );
@@ -145,13 +168,12 @@ const AccountDetailsScreen = () => {
     name: '',
     lastName: '',
     mobile: '',
-    email: '',
   });
 
   const [documents, setDocuments] = useState<any>({
-    aadhar: 'adhar.png',
-    pan: 'pan.png',
-    license: 'license.png',
+    aadhar: '',
+    pan: '',
+    license: '',
   });
 
   const [errors, setErrors] = useState<any>({});
@@ -163,12 +185,11 @@ const AccountDetailsScreen = () => {
         name: driver.first_name || driver.full_name?.split(' ')[0] || '',
         lastName: driver.last_name || driver.full_name?.split(' ').slice(1).join(' ') || '',
         mobile: driver.phone_number || '',
-        email: driver.email || '',
       });
       setDocuments({
-        aadhar: driver.aadhar_path ? 'adhar.png' : '',
-        pan: driver.pan_card_path ? 'pan.png' : '',
-        license: driver.driving_licence_path ? 'license.png' : '',
+        aadhar: driver.aadhar_path ? driver.aadhar_path.split('/').pop() : '',
+        pan: driver.pan_card_path ? driver.pan_card_path.split('/').pop() : '',
+        license: driver.driving_licence_path ? driver.driving_licence_path.split('/').pop() : '',
       });
     }
   }, [driver]);
@@ -178,12 +199,7 @@ const AccountDetailsScreen = () => {
     if (!formData.name.trim()) newErrors.name = 'Required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Required';
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = 'Required';
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Invalid email';
-    }
+
 
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Required';
@@ -191,7 +207,7 @@ const AccountDetailsScreen = () => {
       newErrors.mobile = 'Must be 10 digits';
     }
 
-    if (!documents.aadhar) newErrors.aadhar = 'Upload Aadhar';
+    if (!documents.aadhar) newErrors.aadhar = 'Upload Aadhaar';
     if (!documents.pan) newErrors.pan = 'Upload PAN';
     if (!documents.license) newErrors.license = 'Upload License';
 
@@ -221,6 +237,20 @@ const AccountDetailsScreen = () => {
 
 
 
+  const validateAsset = (asset: any): boolean => {
+    const isHighRes = (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) ||
+                      (asset.width && asset.width > 3000) ||
+                      (asset.height && asset.height > 3000);
+    if (isHighRes) {
+      Alert.alert(
+        i18next.t('error', 'Error'),
+        i18next.t('high_res_error', 'High-resolution image cannot be uploaded. Please upload a smaller or compressed image.')
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handlePickImage = (docKey: keyof typeof documents) => {
     Alert.alert(
       'Upload Document',
@@ -232,7 +262,9 @@ const AccountDetailsScreen = () => {
             try {
               const response = await takePhotoHelper({ quality: 0.8 });
               if (response.assets && response.assets.length > 0) {
-                setDocuments((prev: any) => ({ ...prev, [docKey]: response.assets![0] }));
+                const asset = response.assets[0];
+                if (!validateAsset(asset)) return;
+                setDocuments((prev: any) => ({ ...prev, [docKey]: asset }));
                 setErrors((prev: any) => ({ ...prev, [docKey]: null }));
               }
             } catch (error) {
@@ -246,7 +278,9 @@ const AccountDetailsScreen = () => {
             try {
               const response = await pickImageFromLibrary({ quality: 0.8 });
               if (response.assets && response.assets.length > 0) {
-                setDocuments((prev: any) => ({ ...prev, [docKey]: response.assets![0] }));
+                const asset = response.assets[0];
+                if (!validateAsset(asset)) return;
+                setDocuments((prev: any) => ({ ...prev, [docKey]: asset }));
                 setErrors((prev: any) => ({ ...prev, [docKey]: null }));
               }
             } catch (error) {
@@ -262,7 +296,57 @@ const AccountDetailsScreen = () => {
     );
   };
 
+  const handleViewDocument = async (docKey: 'aadhar' | 'pan' | 'license') => {
+    try {
+      const doc = documents[docKey];
+      let url = '';
+      if (doc && typeof doc === 'object' && doc.uri) {
+        url = doc.uri;
+      } else {
+        const path = 
+          docKey === 'aadhar' ? driver?.aadhar_path :
+          docKey === 'pan' ? driver?.pan_card_path :
+          driver?.driving_licence_path;
+          
+        url = path 
+          ? resolveImageUrl(path) 
+          : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+      }
 
+      if (!url) {
+        AlertHelper.error('Error', 'No document file URL found.');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error: any) {
+      AlertHelper.error('Error', 'Unable to open document: ' + error.message);
+    }
+  };
+
+  const handleDownloadDocument = async (docKey: 'aadhar' | 'pan' | 'license') => {
+    const doc = documents[docKey];
+    if (doc && typeof doc === 'object' && doc.uri) {
+      AlertHelper.show('info', 'Local File', 'This document is selected locally from your device and is not yet uploaded to the server.');
+      return;
+    }
+
+    const path = 
+      docKey === 'aadhar' ? driver?.aadhar_path :
+      docKey === 'pan' ? driver?.pan_card_path :
+      driver?.driving_licence_path;
+      
+    const url = path 
+      ? resolveImageUrl(path) 
+      : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+    const label = 
+      docKey === 'aadhar' ? 'Aadhaar' :
+      docKey === 'pan' ? 'PAN_Card' :
+      'Driving_License';
+
+    await downloadFile(url, label);
+  };
 
   const handleSubmit = () => {
     if (validate()) {
@@ -275,9 +359,7 @@ const AccountDetailsScreen = () => {
       if (formData.lastName !== (driver?.last_name || '')) {
         changedData.last_name = formData.lastName;
       }
-      if (formData.email !== (driver?.email || '')) {
-        changedData.email = formData.email;
-      }
+
       if (formData.mobile !== (driver?.phone_number || '')) {
         changedData.phone_number = formData.mobile;
       }
@@ -306,9 +388,6 @@ const AccountDetailsScreen = () => {
       updateProfile(payload);
     }
   };
-
-
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -318,9 +397,6 @@ const AccountDetailsScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Account</Text>
         </View>
-        <TouchableOpacity>
-          <SearchIcon />
-        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -429,26 +505,20 @@ const AccountDetailsScreen = () => {
               keyboardType="phone-pad"
               onChangeText={(text: string) => setFormData(prev => ({ ...prev, mobile: text }))}
             />
-            <InputField
-              label="Email"
-              errorKey="email"
-              errors={errors}
-              setErrors={setErrors}
-              value={formData.email}
-              keyboardType="email-address"
-              onChangeText={(text: string) => setFormData(prev => ({ ...prev, email: text }))}
-            />
+
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Documents</Text>
             <DocumentItem
-              label="Aadhar"
+              label="Aadhaar"
               errorKey="aadhar"
               errors={errors}
               docName={documents.aadhar}
               onPick={() => handlePickImage('aadhar')}
               onRemove={() => removeDoc('aadhar')}
+              onView={() => handleViewDocument('aadhar')}
+              onDownload={() => handleDownloadDocument('aadhar')}
             />
             <DocumentItem
               label="PAN"
@@ -457,6 +527,8 @@ const AccountDetailsScreen = () => {
               docName={documents.pan}
               onPick={() => handlePickImage('pan')}
               onRemove={() => removeDoc('pan')}
+              onView={() => handleViewDocument('pan')}
+              onDownload={() => handleDownloadDocument('pan')}
             />
             <DocumentItem
               label="License"
@@ -465,6 +537,8 @@ const AccountDetailsScreen = () => {
               docName={documents.license}
               onPick={() => handlePickImage('license')}
               onRemove={() => removeDoc('license')}
+              onView={() => handleViewDocument('license')}
+              onDownload={() => handleDownloadDocument('license')}
             />
           </View>
 
@@ -740,6 +814,31 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#1E1A57',
+  },
+  docActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: verticalScale(10),
+    paddingLeft: '30%',
+  },
+  actionBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CA2027',
+    borderRadius: scale(8),
+    paddingVertical: verticalScale(6),
+    paddingHorizontal: scale(12),
+    marginRight: scale(10),
+    backgroundColor: '#FFF9F9',
+  },
+  actionBtnIcon: {
+    marginRight: scale(6),
+  },
+  actionBtnLabel: {
+    fontSize: moderateScale(11),
+    color: '#CA2027',
+    fontWeight: '600',
   },
 });
 

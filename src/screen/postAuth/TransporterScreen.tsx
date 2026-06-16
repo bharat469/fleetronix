@@ -23,9 +23,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePublicRequests } from '../../hooks/usePublicRequests';
 import { useTripRequests } from '../../hooks/useTripRequests';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { respondToTripRequest } from '../../services/tripApi';
 
-type TabType = 'request' | 'public_posting' | 'assigned' | 'completed';
+type TabType = 'request' | 'public_posting';
 
 interface TransporterLoad {
   id: string;
@@ -39,6 +40,13 @@ interface TransporterLoad {
   phoneNumber: string;
   status: TabType;
   request_id?: string;
+  rawStatus?: string;
+  driver_response?: any;
+  transporter_action?: string;
+  from_date?: string;
+  to_date?: string;
+  transporter_first_name?: string;
+  transporter_last_name?: string;
 }
 
 // Mapper function to transform API response to TransporterLoad
@@ -59,6 +67,13 @@ const mapPublicRequestToTransporterLoad = (item: any): TransporterLoad => {
     phoneNumber: item.customer_mobile || item.phoneNumber || item.driver_mobile || (item.transporter && item.transporter.mobile) || '',
     status: 'public_posting',
     request_id: item.id || '',
+    rawStatus: item.status,
+    driver_response: item.driver_response || item.my_response,
+    transporter_action: item.transporter_action,
+    from_date: item.from_date || '2026-06-01T00:00:00',
+    to_date: item.to_date || '2026-06-03T23:59:59',
+    transporter_first_name: item.transporter_first_name || (item.transporter && item.transporter.first_name) || 'Ajay',
+    transporter_last_name: item.transporter_last_name || (item.transporter && item.transporter.last_name) || 'transporter',
   };
 };
 
@@ -83,20 +98,139 @@ const mapTripRequestToTransporterLoad = (item: any, statusType: TabType): Transp
     phoneNumber: item.customer_mobile || item.phoneNumber || item.driver_mobile || (item.transporter && item.transporter.mobile) || '',
     status: statusType,
     request_id: reqId,
+    rawStatus: item.status,
+    driver_response: item.driver_response || item.my_response,
+    transporter_action: item.transporter_action,
+    from_date: item.from_date || '2026-06-01T00:00:00',
+    to_date: item.to_date || '2026-06-03T23:59:59',
+    transporter_first_name: item.transporter_first_name || (item.transporter && item.transporter.first_name) || 'Ajay',
+    transporter_last_name: item.transporter_last_name || (item.transporter && item.transporter.last_name) || 'transporter',
+  };
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (e) {
+    return dateString;
+  }
+};
+
+interface DriverRequestStatusInfo {
+  label: string;
+  showButtons: boolean;
+  labelColor: string;
+  badgeBg: string;
+}
+
+const getDriverRequestStatus = (item: TransporterLoad): DriverRequestStatusInfo => {
+  const status = item.rawStatus || 'pending';
+  let driverResponseStatus = 'pending';
+  if (item.driver_response) {
+    if (typeof item.driver_response === 'object' && item.driver_response.status) {
+      driverResponseStatus = item.driver_response.status;
+    } else if (typeof item.driver_response === 'string') {
+      driverResponseStatus = item.driver_response;
+    }
+  }
+  const transporterAction = item.transporter_action || 'pending';
+
+  // 1. NEW REQUEST
+  if (status === 'pending' && driverResponseStatus === 'pending') {
+    return {
+      label: 'New Request',
+      showButtons: true,
+      labelColor: '#007AFF', // Premium Blue
+      badgeBg: 'rgba(0, 122, 255, 0.08)',
+    };
+  }
+
+  // 2. WAITING FOR TRANSPORTER
+  if (status === 'pending' && driverResponseStatus === 'accepted' && transporterAction === 'pending') {
+    return {
+      label: 'Requested',
+      showButtons: false,
+      labelColor: '#FF9500', // Premium Warning/Orange
+      badgeBg: 'rgba(255, 149, 0, 0.08)',
+    };
+  }
+
+  // 3. DRIVER REJECTED
+  if (driverResponseStatus === 'rejected') {
+    return {
+      label: 'Rejected',
+      showButtons: false,
+      labelColor: '#FF3B30', // Premium Red
+      badgeBg: 'rgba(255, 59, 48, 0.08)',
+    };
+  }
+
+  // 4. DRIVER SELECTED
+  if ((status === 'contracted' || status === 'accepted') && driverResponseStatus === 'accepted' && transporterAction === 'accepted') {
+    return {
+      label: 'Accepted',
+      showButtons: false,
+      labelColor: '#34C759', // Premium Green
+      badgeBg: 'rgba(52, 199, 89, 0.08)',
+    };
+  }
+
+  // 5. REQUEST CANCELLED
+  if (status === 'cancelled') {
+    return {
+      label: 'Request Cancelled',
+      showButtons: false,
+      labelColor: '#8E8E93', // Premium Gray
+      badgeBg: 'rgba(142, 142, 147, 0.08)',
+    };
+  }
+
+  // If driver response is accepted or outer status is accepted (but other conditions not fully satisfied), still hide buttons:
+  if (driverResponseStatus === 'accepted' || status === 'accepted') {
+    return {
+      label: 'Accepted',
+      showButtons: false,
+      labelColor: '#34C759',
+      badgeBg: 'rgba(52, 199, 89, 0.08)',
+    };
+  }
+
+  return {
+    label: '',
+    showButtons: false,
+    labelColor: '#8E8E93',
+    badgeBg: 'transparent',
   };
 };
 
 interface ShipmentCardProps {
   item: TransporterLoad;
   onContactPress: (phoneNumber: string, name: string) => void;
-  onRespondPress: (requestNumber: string, action: 'accept' | 'decline') => void;
+  onRespondPress: (requestNumber: string, action: 'accept' | 'reject') => void;
 }
 
 const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: ShipmentCardProps) => {
+  const statusInfo = useMemo(() => getDriverRequestStatus(item), [item]);
+
   return (
     <View style={styles.card}>
-      {/* Route Header */}
-      <Text style={styles.cardRouteHeader}>{item.pickup} → {item.drop}</Text>
+      {/* Route Header Row */}
+      <View style={styles.cardHeaderRow}>
+        <Text style={styles.cardRouteHeader} numberOfLines={1}>{item.pickup} → {item.drop}</Text>
+        {statusInfo.label ? (
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.badgeBg }]}>
+            <Text style={[styles.statusBadgeText, { color: statusInfo.labelColor }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
       {/* Content Row */}
       <View style={styles.cardBody}>
@@ -104,7 +238,7 @@ const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: Shipm
         <View style={styles.avatarColumn}>
           <View style={styles.imageWrapper}>
             <Image
-              source={require('../../assets/images/shipper_avatar.png')}
+              source={require('../../assets/images/shipper_avatar.jpg')}
               style={styles.avatarImage}
             />
             {/* Verified Checkmark Badge */}
@@ -112,7 +246,6 @@ const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: Shipm
               <Text style={styles.verifiedCheck}>✓</Text>
             </View>
           </View>
-          <Text style={styles.avatarName}>{item.contactPerson}</Text>
         </View>
 
         {/* Right Column: Details */}
@@ -122,23 +255,23 @@ const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: Shipm
             <Text style={styles.detailValue} numberOfLines={1}>{item.transporter_company_name}</Text>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Task</Text>
+            <Text style={styles.detailLabel}>From Date</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(item.from_date)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>To Date</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(item.to_date)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Fleet Type</Text>
             <Text style={styles.detailValue} numberOfLines={1}>{item.task}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Pickup</Text>
-            <Text style={styles.detailValue} numberOfLines={2}>{item.pickup}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Drop</Text>
-            <Text style={styles.detailValue} numberOfLines={2}>{item.drop}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Trip Estimate</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{item.tripEstimate}</Text>
           </View>
         </View>
       </View>
+
+      <Text style={styles.avatarName}>
+        {item.transporter_first_name} {item.transporter_last_name}
+      </Text>
 
       {/* Divider */}
       <View style={styles.divider} />
@@ -154,17 +287,17 @@ const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: Shipm
           <Text style={styles.contactButtonText}>Get in Contact</Text>
         </TouchableOpacity>
 
-        {item.request_id ? (
+        {statusInfo.showButtons && item.id ? (
           <View style={styles.cardFooterActions}>
             <TouchableOpacity
-              onPress={() => onRespondPress(item.request_id!, 'accept')}
+              onPress={() => onRespondPress(item.id!, 'accept')}
               activeOpacity={0.7}
               style={styles.actionTextButton}
             >
               <Text style={styles.acceptButtonText}>Accept</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => onRespondPress(item.request_id!, 'decline')}
+              onPress={() => onRespondPress(item.id!, 'reject')}
               activeOpacity={0.7}
               style={styles.actionTextButton}
             >
@@ -177,35 +310,18 @@ const ShipmentCard = React.memo(({ item, onContactPress, onRespondPress }: Shipm
   );
 });
 
+
 const TransporterScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [activeTab, setActiveTab] = useState<TabType>('request');
 
   const CATEGORIES = useMemo<{ label: string; value: TabType }[]>(() => [
     { label: 'Request', value: 'request' },
-    { label: 'public posting', value: 'public_posting' },
-    { label: 'assigined', value: 'assigned' },
-    { label: 'completed', value: 'completed' },
+    { label: 'Public Posting', value: 'public_posting' },
   ], []);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
-
-  // Helper to map tab selection to status filter for trip requests api
-  const getStatusFromTab = useCallback((tab: TabType): 'pending' | 'accepted' | 'rejected' | null => {
-    switch (tab) {
-      case 'request':
-        return 'pending';
-      case 'assigned':
-        return 'accepted';
-      case 'completed':
-        return 'rejected';
-      default:
-        return null;
-    }
-  }, []);
-
-  const activeStatus = getStatusFromTab(activeTab);
 
   // Call TanStack query hook. Enabled only when public posting tab is active.
   const {
@@ -219,7 +335,7 @@ const TransporterScreen = () => {
     isFetchingNextPage,
   } = usePublicRequests(activeTab === 'public_posting');
 
-  // Call TanStack query hook for status-based requests. Enabled when tab is 'request', 'assigned', or 'completed'.
+  // Call TanStack query hook for status-based requests. Enabled when tab is 'request'.
   const {
     data: tripRequestsData,
     isLoading: isTripRequestsLoading,
@@ -229,11 +345,11 @@ const TransporterScreen = () => {
     fetchNextPage: fetchNextPageTrip,
     hasNextPage: hasNextPageTrip,
     isFetchingNextPage: isFetchingNextPageTrip,
-  } = useTripRequests(activeStatus || 'pending', activeStatus !== null);
+  } = useTripRequests('pending', activeTab === 'request');
 
   // Mutation to respond to a trip request (accept/decline)
   const respondMutation = useMutation({
-    mutationFn: ({ requestNumber, action }: { requestNumber: string; action: 'accept' | 'decline' }) =>
+    mutationFn: ({ requestNumber, action }: { requestNumber: string; action: 'accept' | 'reject' }) =>
       respondToTripRequest(requestNumber, action),
     onSuccess: (data, variables) => {
       Alert.alert('Success', `Successfully ${variables.action}ed the request.`);
@@ -246,7 +362,7 @@ const TransporterScreen = () => {
     },
   });
 
-  const handleRespond = useCallback((requestNumber: string, action: 'accept' | 'decline') => {
+  const handleRespond = useCallback((requestNumber: string, action: 'accept' | 'reject') => {
     Alert.alert(
       `${action.charAt(0).toUpperCase() + action.slice(1)} Request`,
       `Are you sure you want to ${action} this trip request?`,
@@ -265,26 +381,68 @@ const TransporterScreen = () => {
   const handleRefresh = useCallback(async () => {
     if (activeTab === 'public_posting') {
       await refetchPublicRequests();
-    } else if (activeStatus !== null) {
+    } else if (activeTab === 'request') {
       await refetchTripRequests();
-    } else {
-      setIsRefreshing(true);
-      setTimeout(() => setIsRefreshing(false), 1000);
     }
-  }, [activeTab, activeStatus, refetchPublicRequests, refetchTripRequests]);
+  }, [activeTab, refetchPublicRequests, refetchTripRequests]);
 
   const filteredLoads = useMemo(() => {
     if (activeTab === 'public_posting') {
       const apiItems = publicRequestsData?.pages?.flatMap(page => page.data || []) || [];
       return apiItems.map(mapPublicRequestToTransporterLoad);
     }
-    if (activeStatus !== null) {
+    if (activeTab === 'request') {
       const apiItems = tripRequestsData?.pages?.flatMap(page => page.data || []) || [];
       return apiItems.map(item => mapTripRequestToTransporterLoad(item, activeTab));
     }
     return [];
-  }, [activeTab, activeStatus, publicRequestsData, tripRequestsData]);
+  }, [
+    activeTab,
+    publicRequestsData,
+    tripRequestsData,
+  ]);
 
+  const currentQueryState = useMemo(() => {
+    switch (activeTab) {
+      case 'public_posting':
+        return {
+          isLoading: isPublicRequestsLoading && !isPublicRequestsRefetching,
+          isError: !!publicRequestsError,
+          errorLabel: 'Failed to load public postings.',
+          refetch: refetchPublicRequests,
+          isRefetching: isPublicRequestsRefetching,
+          hasNextPage: hasNextPage,
+          isFetchingNextPage: isFetchingNextPage,
+          fetchNextPage: fetchNextPage,
+        };
+      case 'request':
+        return {
+          isLoading: isTripRequestsLoading && !isTripRequestsRefetching,
+          isError: !!tripRequestsError,
+          errorLabel: 'Failed to load requests.',
+          refetch: refetchTripRequests,
+          isRefetching: isTripRequestsRefetching,
+          hasNextPage: hasNextPageTrip,
+          isFetchingNextPage: isFetchingNextPageTrip,
+          fetchNextPage: fetchNextPageTrip,
+        };
+      default:
+        return {
+          isLoading: false,
+          isError: false,
+          errorLabel: '',
+          refetch: () => Promise.resolve(),
+          isRefetching: false,
+          hasNextPage: false,
+          isFetchingNextPage: false,
+          fetchNextPage: () => {},
+        };
+    }
+  }, [
+    activeTab,
+    isPublicRequestsLoading, isPublicRequestsRefetching, publicRequestsError, refetchPublicRequests, hasNextPage, isFetchingNextPage, fetchNextPage,
+    isTripRequestsLoading, isTripRequestsRefetching, tripRequestsError, refetchTripRequests, hasNextPageTrip, isFetchingNextPageTrip, fetchNextPageTrip,
+  ]);
 
   const handleContactPress = useCallback((phoneNumber: string, name: string) => {
     Alert.alert(
@@ -361,42 +519,21 @@ const TransporterScreen = () => {
       </View>
 
       {/* Loadings/Cards List */}
-      {activeTab === 'public_posting' ? (
-        isPublicRequestsLoading && !isPublicRequestsRefetching ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading public postings...</Text>
-          </View>
-        ) : publicRequestsError ? (
-          <View style={styles.center}>
-            <Text style={styles.errorText}>Failed to load public postings.</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => refetchPublicRequests()}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null
-      ) : activeStatus !== null ? (
-        isTripRequestsLoading && !isTripRequestsRefetching ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading requests...</Text>
-          </View>
-        ) : tripRequestsError ? (
-          <View style={styles.center}>
-            <Text style={styles.errorText}>Failed to load requests.</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => refetchTripRequests()}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null
+      {currentQueryState.isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      ) : currentQueryState.isError ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{currentQueryState.errorLabel}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => currentQueryState.refetch()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : null}
 
-      {!(
-        (activeTab === 'public_posting' && isPublicRequestsLoading && !isPublicRequestsRefetching) ||
-        (activeTab === 'public_posting' && publicRequestsError) ||
-        (activeStatus !== null && isTripRequestsLoading && !isTripRequestsRefetching) ||
-        (activeStatus !== null && tripRequestsError)
-      ) && (
+      {!currentQueryState.isLoading && !currentQueryState.isError && (
         <FlatList
           data={filteredLoads}
           renderItem={renderCard}
@@ -405,13 +542,7 @@ const TransporterScreen = () => {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={
-                activeTab === 'public_posting'
-                  ? isPublicRequestsRefetching
-                  : activeStatus !== null
-                  ? isTripRequestsRefetching
-                  : isRefreshing
-              }
+              refreshing={currentQueryState.isRefetching}
               onRefresh={handleRefresh}
               colors={[COLORS.primary]}
               tintColor={COLORS.primary}
@@ -423,21 +554,13 @@ const TransporterScreen = () => {
             </View>
           }
           onEndReached={
-            activeTab === 'public_posting'
-              ? hasNextPage && !isFetchingNextPage
-                ? () => fetchNextPage()
-                : undefined
-              : activeStatus !== null
-              ? hasNextPageTrip && !isFetchingNextPageTrip
-                ? () => fetchNextPageTrip()
-                : undefined
+            currentQueryState.hasNextPage && !currentQueryState.isFetchingNextPage
+              ? () => currentQueryState.fetchNextPage()
               : undefined
           }
           onEndReachedThreshold={0.5}
           ListFooterComponent={
-            activeTab === 'public_posting' && isFetchingNextPage ? (
-              <ActivityIndicator size="small" color={COLORS.primary} style={styles.footerLoader} />
-            ) : activeStatus !== null && isFetchingNextPageTrip ? (
+            currentQueryState.isFetchingNextPage ? (
               <ActivityIndicator size="small" color={COLORS.primary} style={styles.footerLoader} />
             ) : null
           }
@@ -523,9 +646,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   avatarColumn: {
-    alignItems: 'center',
-    width: scale(80),
-    marginRight: scale(12),
+    alignItems: 'flex-start',
+    width: scale(64),
+    marginRight: scale(16),
   },
   imageWrapper: {
     position: 'relative',
@@ -566,8 +689,8 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#000000',
-    marginTop: verticalScale(8),
-    textAlign: 'center',
+    marginTop: verticalScale(12),
+    textAlign: 'left',
   },
   detailsColumn: {
     flex: 1,
@@ -643,12 +766,30 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     fontWeight: '700',
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: verticalScale(12),
+  },
   cardRouteHeader: {
     fontSize: moderateScale(15),
     fontWeight: '700',
     color: '#000000',
     textDecorationLine: 'underline',
-    marginBottom: verticalScale(12),
+    flex: 1,
+    marginRight: scale(10),
+  },
+  statusBadge: {
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
+    borderRadius: scale(12),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusBadgeText: {
+    fontSize: moderateScale(11),
+    fontWeight: '600',
   },
   cardFooter: {
     flexDirection: 'row',

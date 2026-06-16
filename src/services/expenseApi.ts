@@ -20,10 +20,13 @@ export interface ExpenseDashboardResponse {
     total_expense: number;
     received: number;
     pending: number;
-    spend_frequency: Array<{
-      label: string;
-      value: number;
-    }>;
+    spend_frequency: {
+      data_points: Array<{
+        amount: number;
+        label: string;
+      }>;
+      tab: string;
+    };
     recent_transactions: Array<{
       id: string;
       category: string;
@@ -76,7 +79,7 @@ export const addExpense = async (params: AddExpenseParams) => {
     'Food': 'food',
     'Subscription': 'subscription',
     'Repairing': 'repairing',
-    'Tire Changing': 'repairing', // Mapped to repairing as per backend list
+    'Tire Changing': 'tire_changing',
     'Fuel': 'fuel',
     'Loading/unloading': 'loading_unloading',
     'Lodging': 'lodging',
@@ -102,7 +105,12 @@ export const addExpense = async (params: AddExpenseParams) => {
 
 
   if (attachment) {
-    const cleanPath = attachment.uri.replace('file://', '');
+    const cleanPath = attachment.uri.startsWith('file://')
+      ? decodeURIComponent(attachment.uri.replace('file://', ''))
+      : attachment.uri;
+
+    console.log(`[expenseApi] 📂 Attaching file: key="attachment", filename="${attachment.name || 'receipt.jpg'}", path="${cleanPath}", type="${attachment.type || 'image/jpeg'}"`);
+
     multipartBody.push({
       name: 'attachment',
       filename: attachment.name || 'receipt.jpg',
@@ -185,23 +193,30 @@ export const fetchExpenseDetails = async (id: string): Promise<any> => {
   }
 };
 
-export const getExpensePdf = async (id: string): Promise<any> => {
+export const getExpensePdf = async (id: string, isShare: boolean = false): Promise<any> => {
   const state = store.getState();
   const token = state.auth.userToken;
   const url = `${BASE_URL}/expense/${id}/receipt/pdf`;
   
-  console.log('[expenseApi] 📥 Downloading PDF (BlobUtil)');
+  console.log(`[expenseApi] 📥 Downloading PDF for ${isShare ? 'sharing' : 'download'} (BlobUtil)`);
   
   try {
-    const response = await ReactNativeBlobUtil.config({
-      fileCache: true,
-      addAndroidDownloads: {
-        useDownloadManager: true,
-        notification: true,
-        path: ReactNativeBlobUtil.fs.dirs.DownloadDir + `/expense_receipt_${id}.pdf`,
-        description: 'Downloading Expense Receipt',
-      },
-    }).fetch('GET', url, {
+    const configOptions = isShare
+      ? {
+          fileCache: true,
+          path: ReactNativeBlobUtil.fs.dirs.CacheDir + `/expense_receipt_${id}.pdf`,
+        }
+      : {
+          fileCache: true,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            path: ReactNativeBlobUtil.fs.dirs.DownloadDir + `/expense_receipt_${id}.pdf`,
+            description: 'Downloading Expense Receipt',
+          },
+        };
+
+    const response = await ReactNativeBlobUtil.config(configOptions).fetch('GET', url, {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
     });
@@ -209,6 +224,25 @@ export const getExpensePdf = async (id: string): Promise<any> => {
     return response.path();
   } catch (error: any) {
     console.error('[expenseApi] PDF download failed:', error?.message);
+    throw error;
+  }
+};
+
+export interface ExpenseActivityParams {
+  page?: number;
+  per_page?: number;
+  sort_by?: string;
+  month?: number;
+  year?: number;
+}
+
+export const fetchExpenseActivity = async (params: ExpenseActivityParams): Promise<any> => {
+  console.log('[expenseApi] GET expense/activity', params);
+  try {
+    const response = await apiClient.get('expense/activity', { params });
+    return response.data;
+  } catch (error: any) {
+    console.error('[expenseApi] Activity fetch failed:', error?.message);
     throw error;
   }
 };

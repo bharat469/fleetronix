@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { postFeedback } from '../../../services/tripApi';
-import { resetTrip } from '../../../redux/slices/tripSlice';
+import { resetTrip, setTripId } from '../../../redux/slices/tripSlice';
 import { ActivityIndicator, Alert } from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
 
@@ -30,11 +30,17 @@ const RatingScreen = () => {
   const token      = useSelector((state: RootState) => state.auth.accessToken);
 
   const { trip } = route.params;
-  const tripId = tripRedux.tripId || trip?.trip_id;
+  const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
+
+  useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
 
 
-  const [rating, setRating] = useState(4);
+  const [rating, setRating] = useState(0);
 
   const { mutate, isPending } = useMutation({
     mutationFn: postFeedback,
@@ -97,9 +103,9 @@ const RatingScreen = () => {
           </View>
 
           <TouchableOpacity 
-            style={[styles.submitBtn, isPending && { opacity: 0.7 }]}
+            style={[styles.submitBtn, (isPending || rating === 0) && styles.disabledBtn]}
             onPress={handleSubmit}
-            disabled={isPending}
+            disabled={isPending || rating === 0}
           >
             {isPending ? (
               <ActivityIndicator color="white" />
@@ -203,6 +209,9 @@ const styles = StyleSheet.create({
     borderRadius: scale(15),
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  disabledBtn: {
+    backgroundColor: '#E5E7EB',
   },
   submitBtnText: {
     color: 'white',

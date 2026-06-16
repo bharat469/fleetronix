@@ -13,13 +13,52 @@ interface TripCardProps {
 }
 
 const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
+  const getStatusDetails = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'assigned':
+        return { label: 'Assigned', bgColor: '#E0F2FE', textColor: '#0369A1' }; // Blue
+      case 'started':
+      case 'in_progress':
+      case 'ongoing':
+        return { label: 'Ongoing', bgColor: '#FEF3C7', textColor: '#B45309' }; // Amber/Yellow
+      case 'completed':
+        return { label: 'Completed', bgColor: '#DCFCE7', textColor: '#15803D' }; // Green
+      default:
+        return { label: status || 'Pending', bgColor: '#F3F4F6', textColor: '#374151' }; // Gray
+    }
+  };
+
+  const statusDetails = getStatusDetails(trip.status);
+
+  // Compute shipper name display values
+  const hasShipperNameParts = !!(trip.shipper_name_first || trip.shipper_name_last);
+  const displayShipperName = hasShipperNameParts
+    ? `${trip.shipper_name_first || ''} ${trip.shipper_name_last || ''}`.trim()
+    : (trip.shipperName || '').split(' ')[0] || 'Name';
+
+  const fullShipperName = hasShipperNameParts
+    ? `${trip.shipper_name_first || ''} ${trip.shipper_name_last || ''}`.trim()
+    : trip.shipperName || 'N/A';
+
   return (
     <TouchableOpacity
       style={styles.container}
       activeOpacity={0.8}
       onPress={() => onPress?.(trip)}
     >
-      <Text style={styles.loadId}>Load Id - #{trip.load_number || trip.load_id || trip.trip_number}</Text>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.loadId}>Load Id - #{trip.load_number || trip.load_id || trip.trip_number}</Text>
+          {!!trip.trip_number && (
+            <Text style={styles.tripNumber}>Trip Number - #{trip.trip_number}</Text>
+          )}
+        </View>
+        {trip.status && (
+          <View style={[styles.statusTag, { backgroundColor: statusDetails.bgColor }]}>
+            <Text style={[styles.statusText, { color: statusDetails.textColor }]}>{statusDetails.label}</Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.mainContent}>
         <View style={styles.profileSection}>
@@ -46,11 +85,11 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
               )
             }
           </View>
-          <Text style={styles.nameText}>{(trip.driver_name || trip.shipperName || '').split(' ')[0] || 'Name'}</Text>
+          <Text style={styles.nameText}>{displayShipperName}</Text>
         </View>
 
         <View style={styles.detailsGrid}>
-          <DetailRow label="Shipper Name" value={trip.driver_name || trip.shipperName || 'N/A'} />
+          <DetailRow label="Shipper Name" value={fullShipperName} />
           <DetailRow label="Task" value={trip.task || "Chemical Delivery"} />
           <DetailRow label="Pickup" value={trip.source_city || trip.pickup_city || 'N/A'} />
           <DetailRow label="Drop" value={trip.destination_city || trip.drop_city || 'N/A'} />
@@ -90,11 +129,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EEEEEE',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: verticalScale(15),
+  },
   loadId: {
     fontSize: moderateScale(15),
     fontWeight: '700',
     color: '#000',
-    marginBottom: verticalScale(15),
+  },
+  tripNumber: {
+    fontSize: moderateScale(11),
+    fontWeight: '500',
+    color: '#858080',
+    marginTop: verticalScale(2),
+  },
+  statusTag: {
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
+    borderRadius: scale(12),
+  },
+  statusText: {
+    fontSize: moderateScale(11),
+    fontWeight: '700',
   },
   mainContent: {
     flexDirection: 'row',

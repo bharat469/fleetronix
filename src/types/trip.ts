@@ -40,6 +40,8 @@ export interface Trip {
 
   driver_name: string;
   shipperName?: string;
+  shipper_name_first?: string;
+  shipper_name_last?: string;
   driver_photo_url?: string;
   image?: string;
   task?: string;

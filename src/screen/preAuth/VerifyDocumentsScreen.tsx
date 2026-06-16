@@ -31,6 +31,20 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
 
   const [currentStep, setCurrentStep] = useState<subStep>('LICENSE_EMPTY');
 
+  const validateAsset = (asset: any): boolean => {
+    const isHighRes = (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) ||
+                      (asset.width && asset.width > 3000) ||
+                      (asset.height && asset.height > 3000);
+    if (isHighRes) {
+      Alert.alert(
+        t('error', 'Error'),
+        t('high_res_error', 'High-resolution image cannot be uploaded. Please upload a smaller or compressed image.')
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handleImagePicker = (type: 'license' | 'adhar') => {
     Alert.alert(
       t('select_image', 'Select Image'),
@@ -42,6 +56,7 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             const result = await takePhoto();
             if (result.assets && result.assets.length > 0) {
               const asset = result.assets[0];
+              if (!validateAsset(asset)) return;
               if (type === 'license') {
                 dispatch(setLicenseImage(asset));
                 setCurrentStep('LICENSE_PREVIEW');
@@ -58,6 +73,7 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
             const result = await pickImageFromLibrary();
             if (result.assets && result.assets.length > 0) {
               const asset = result.assets[0];
+              if (!validateAsset(asset)) return;
               if (type === 'license') {
                 dispatch(setLicenseImage(asset));
                 setCurrentStep('LICENSE_PREVIEW');
@@ -77,7 +93,7 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
     if (currentStep === 'LICENSE_PREVIEW') {
       setCurrentStep('ADHAR_EMPTY');
     } else if (currentStep === 'ADHAR_PREVIEW') {
-      navigation.navigate('ReadyToDrive');
+      navigation.navigate('ProfilePic');
     }
   };
 
@@ -109,12 +125,12 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
     <View style={styles.content}>
       <Text style={styles.stepInfo}>{t('step_2_of_3', 'Step 2 of 3')}</Text>
       <Text style={styles.title}>
-        {type === 'license' ? t('verify_license_title', "Let's Verify your driver license") : t('verify_adhar_title', "Let's upload your Adhar Card")}
+        {type === 'license' ? t('verify_license_title', "Let's Verify your driver license") : t('verify_adhar_title', "Let's upload your Aadhaar Card")}
       </Text>
       <Text style={styles.description}>
         {type === 'license'
           ? t('verify_license_desc', 'Upload a legible picture of your driver license to verify it')
-          : t('verify_adhar_desc', 'Upload a legible picture of your Adhar card to verify it')}
+          : t('verify_adhar_desc', 'Upload a legible picture of your Aadhaar card to verify it')}
       </Text>
 
       <TouchableOpacity
@@ -133,7 +149,7 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
     const uri = asset?.uri;
     const title = type === 'license'
       ? t('verify_license_title_preview', "Let's Verify your driver license")
-      : t('verify_adhar_title_preview', "Let's Verify your Adhar Card");
+      : t('verify_adhar_title_preview', "Let's Verify your Aadhaar Card");
 
     return (
       <View style={styles.content}>
@@ -186,7 +202,7 @@ const VerifyDocumentsScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Text style={styles.mainButtonText}>
               {currentStep === 'LICENSE_PREVIEW' ? t('verify_license_btn', 'Verify License')
-                : currentStep === 'ADHAR_PREVIEW' ? t('verify_adhar_btn', 'Verify Aadhar Card')
+                : currentStep === 'ADHAR_PREVIEW' ? t('verify_adhar_btn', 'Verify Aadhaar Card')
                   : t('next', 'NEXT')}
             </Text>
           </TouchableOpacity>

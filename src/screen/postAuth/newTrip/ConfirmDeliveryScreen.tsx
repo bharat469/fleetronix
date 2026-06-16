@@ -28,7 +28,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { confirmDelivery } from '../../../services/tripApi';
-import { resetTrip } from '../../../redux/slices/tripSlice';
+import { resetTrip, setTripId } from '../../../redux/slices/tripSlice';
 
 const ConfirmDeliveryScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -38,7 +38,13 @@ const ConfirmDeliveryScreen = () => {
   const token = useSelector((state: RootState) => state.auth.accessToken);
 
   const { trip } = route.params;
-  const tripId = tripRedux.tripId || trip?.trip_id;
+  const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
+
+  React.useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
 
 

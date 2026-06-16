@@ -91,7 +91,7 @@ export const resetMockSimulation = (): void => {
  * REPLACE body with: return (await apiClient.get(`driver/trips/${tripId}/live`)).data
  */
 export const fetchLiveTripData = async (tripId: string): Promise<LiveTripData> => {
-  await new Promise((r) => setTimeout(r, 200)); // simulate latency
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), 200)); // simulate latency
 
   const total = MOCK_ROUTE_COORDINATES.length - 1;
   const distanceRemaining = parseFloat(

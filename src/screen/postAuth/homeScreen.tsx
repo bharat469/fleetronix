@@ -14,7 +14,6 @@ import {
 import { COLORS } from '../../helpers/values/colors';
 import ActionCard from '../../components/ActionCard';
 import {
-  BellIcon,
   LocationIcon,
   TruckIcon,
   SignpostIcon,
@@ -31,31 +30,73 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { scale, verticalScale, moderateScale, SCREEN } from '../../helpers/dimension';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { useDriverInfo } from '../../hooks/useAuth';
-import { useNavigation } from '@react-navigation/native';
+import { useDriverInfo, useUpdateDriver } from '../../hooks/useAuth';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { ActivityIndicator, PermissionsAndroid, Platform, Alert } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
 import { useReverseGeocode } from '../../hooks/useGeocoding';
+import { useQueryClient } from '@tanstack/react-query';
 
 
 
 const HomeScreen = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
 
   const { driverId, userToken } = useSelector((state: RootState) => state.auth);
-  const { data: driverResponse, isLoading, isError } = useDriverInfo(
+  const { data: driverResponse, isLoading, isError, refetch } = useDriverInfo(
     driverId || '',
     userToken || '',
     !!driverId && !!userToken
   );
 
-  const [isEnabled, setIsEnabled] = useState(true);
-  const toggleSwitch = () => setIsEnabled((previousState) => !previousState);
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+      queryClient.invalidateQueries();
+    }, [refetch, queryClient])
+  );
 
   const driverData = driverResponse?.data;
+  const [isEnabled, setIsEnabled] = useState(false);
+
+  useEffect(() => {
+    if (driverData) {
+      setIsEnabled(driverData.is_active);
+    }
+  }, [driverData]);
+
+  const { mutate: updateProfile } = useUpdateDriver({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
+      refetch();
+    },
+    onError: (error: any) => {
+      setIsEnabled((previousState) => !previousState);
+      Alert.alert('Error', error.message || 'Failed to update active status');
+    }
+  });
+
+  const toggleSwitch = () => {
+    const nextValue = !isEnabled;
+    setIsEnabled(nextValue);
+    
+    // Set status to available if true, on_leave (sleeping) if false
+    const nextStatus = nextValue ? 'available' : 'on_leave';
+
+    updateProfile({
+      driverId: driverId || '',
+      token: userToken || '',
+      data: {
+        is_active: nextValue,
+        status: nextStatus
+      }
+    });
+  };
+
   const [currentAddress, setCurrentAddress] = useState('Detecting...');
 
   const { mutateAsync: getAddress } = useReverseGeocode();
@@ -161,17 +202,11 @@ const HomeScreen = () => {
                     <Text style={styles.statText}>
                       {t('driver_id')}: <Text style={styles.statValue}>{driverId || '---'}</Text>
                     </Text>
-                    <Text style={styles.statText}>
-                      {t('vehicle_number')}: <Text style={styles.statValue}>{driverData?.vehicle_number || '---'}</Text>
-                    </Text>
                   </View>
                 </>
               )}
             </View>
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.notificationBtn}>
-                <BellIcon /><View style={styles.notificationDot} />
-              </TouchableOpacity>
               <View style={styles.switchContainer}>
                 <Switch
                   trackColor={{ false: '#767577', true: '#4CD964' }}
@@ -187,6 +222,7 @@ const HomeScreen = () => {
         <View style={styles.dashboardContainer}>
           <View style={styles.handle} />
           <View style={styles.grid}>
+            {/* Hiding New Trip until further notice
             <ActionCard
               title={t('new_trip')}
               subtitle={t('trip_card_desc')}
@@ -194,39 +230,46 @@ const HomeScreen = () => {
               iconBgColor="rgba(255, 107, 0, 0.1)"
               onPress={() => navigation.navigate('NewTripLocation')}
             />
+            */}
             <ActionCard
               title={t('all_trips')}
               subtitle={t('trip_card_desc')}
               Icon={SignpostIcon}
               iconBgColor="rgba(255, 0, 255, 0.1)"
-              onPress={() => navigation.navigate('AllLoads')}
+              onPress={() => navigation.navigate('AllLoads', { initialTab: 'all' })}
             />
-            <ActionCard
-              title={t('expenses')}
-              subtitle={t('trip_card_desc')}
-              Icon={MoneyBagIcon}
-              iconBgColor="rgba(0, 200, 83, 0.1)"
-              onPress={() => navigation.navigate('ExpenseDashboard')}
-            />
+            {driverData?.driver_source === 'managed' && (
+              <ActionCard
+                title={t('expenses')}
+                subtitle={t('trip_card_desc')}
+                Icon={MoneyBagIcon}
+                iconBgColor="rgba(0, 200, 83, 0.1)"
+                onPress={() => navigation.navigate('ExpenseDashboard')}
+              />
+            )}
             <ActionCard
               title={t('support')}
               subtitle={t('trip_card_desc')}
               Icon={SupportIcon}
               iconBgColor="rgba(211, 47, 47, 0.1)"
+              onPress={() => navigation.navigate('Support' as any)}
             />
             <ActionCard
               title={t('pod')}
               subtitle={t('trip_card_desc')}
               Icon={RoadIcon}
               iconBgColor="rgba(141, 110, 99, 0.1)"
+              onPress={() => navigation.navigate('POD' as any)}
             />
-            <ActionCard
-              title={t('transporter')}
-              subtitle={t('transporter_desc')}
-              Icon={TransporterIcon}
-              iconBgColor="rgba(255, 152, 0, 0.15)"
-              onPress={() => navigation.navigate('TransporterScreen')}
-            />
+            {driverData?.driver_source !== 'managed' && (
+              <ActionCard
+                title={t('transporter')}
+                subtitle={t('transporter_desc')}
+                Icon={TransporterIcon}
+                iconBgColor="rgba(255, 152, 0, 0.15)"
+                onPress={() => navigation.navigate('TransporterScreen')}
+              />
+            )}
           </View>
           <View style={styles.sliderIndicatorContainer}>
             <View style={styles.sliderTrack}><View style={styles.sliderActive} /></View>
@@ -315,27 +358,10 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 'auto',
     marginBottom: verticalScale(60),
-  },
-  notificationBtn: {
-    width: scale(40),
-    height: scale(40),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: verticalScale(10),
-    right: scale(10),
-    width: scale(8),
-    height: scale(8),
-    borderRadius: scale(4),
-    backgroundColor: '#FF6B00',
-    borderWidth: 1.5,
-    borderColor: 'white',
   },
   switchContainer: {
     transform: [{ scale: 1.2 }],

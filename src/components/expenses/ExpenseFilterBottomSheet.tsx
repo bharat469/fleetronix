@@ -24,7 +24,7 @@ const months = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const mockCategories = ['Shopping', 'Food', 'Subscription', 'Repairing', 'Tire Changing', 'Fuel'];
+const mockCategories = ['Fuel', 'Toll', 'Repairing', 'Food', 'Lodging', 'Loading/unloading', 'Cleaning', 'Shopping', 'Subscription'];
 
 const ExpenseFilterBottomSheet: React.FC<ExpenseFilterBottomSheetProps> = ({
   onApply,
