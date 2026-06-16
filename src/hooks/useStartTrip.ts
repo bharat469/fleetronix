@@ -61,7 +61,7 @@ export const useStartTrip = () => {
 
   // ── Mutation 2: Start Trip (with coords) ──────────────────────────────────
   const startTripMutation = useMutation({
-    mutationFn: ({ tripId, coords }: { tripId: string; coords: { latitude: number; longitude: number } }) =>
+    mutationFn: ({ tripId, coords, trip }: { tripId: string; coords: { latitude: number; longitude: number }; trip?: any }) =>
       startTrip(tripId, coords),
     retry: 2,
     onMutate: () => {
@@ -70,7 +70,7 @@ export const useStartTrip = () => {
     onSuccess: (data, variables) => {
       if (data?.message) dispatch(setActiveTripData(data.message));
       dispatch(setLifecycle('started'));
-      navigation.navigate('LiveTracking');
+      navigation.navigate('LiveTracking', { trip: variables.trip || data?.message || { id: variables.tripId } });
     },
     onError: (error: Error) => {
       console.error('[useStartTrip] startTrip failed:', error.message);

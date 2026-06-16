@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   BackHandler,
+  RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { useDriverInfo } from '../../../hooks/useAuth';
 import { useExpenseDashboard } from '../../../hooks/useExpense';
 import LinearGradient from 'react-native-linear-gradient';
 import { ActivityIndicator } from 'react-native';
+import { resolveImageUrl } from '../../../helpers/urlHelper';
 
 // Reusable Components
 import SectionHeader from '../../../components/expenses/SectionHeader';
@@ -66,7 +68,7 @@ const ExpenseDashboardScreen = (props:any) => {
   );
   const driverData = driverResponse?.data;
 
-  const { data: expenseData, isLoading: isExpenseLoading } = useExpenseDashboard({
+  const { data: expenseData, isLoading: isExpenseLoading, refetch, isRefetching } = useExpenseDashboard({
     month: currentFilters.month,
     year: currentFilters.year,
     frequency: activeFilter.toLowerCase(),
@@ -104,7 +106,18 @@ const ExpenseDashboardScreen = (props:any) => {
         end={{ x: 0, y: 0.3 }}
       />
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            colors={['#CA2027']}
+            tintColor="#CA2027"
+          />
+        }
+      >
         
         {/* Header Section */}
         <View style={styles.header}>
@@ -114,13 +127,16 @@ const ExpenseDashboardScreen = (props:any) => {
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileContainer}>
               <Image 
-                source={{ uri: driverData?.image || driverData?.profile_photo || 'https://randomuser.me/api/portraits/women/44.jpg' }} 
+                source={{ uri: resolveImageUrl(driverData?.photo_path) }} 
                 style={styles.profileImage}
               />
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={styles.notificationBtn}>
+          <TouchableOpacity 
+            style={styles.notificationBtn}
+            onPress={() => props.navigation.navigate('Home', { screen: 'Notification' })}
+          >
             <RedBellIcon width={scale(24)} height={scale(24)} />
             <View style={styles.notificationDot} />
           </TouchableOpacity>
@@ -169,48 +185,23 @@ const ExpenseDashboardScreen = (props:any) => {
             {/* Recent Transactions */}
             <SectionHeader 
               title="Recent Transaction" 
-              onSeeAll={() => {}} 
-              onFilter={() => {
-             
-                setIsFilterVisible(true);
-              }} 
+                showFilter={false}
+                onSeeAll={() => props.navigation.navigate('AllExpenses')} 
             />
             
-            {dashboardData?.recent_transactions?.map((item: any, index: number) => (
+              {dashboardData?.recent_transactions?.slice(0, 4).map((item: any, index: number) => (
               <TransactionItem 
                 key={item.id || `tx-${index}`}
+                id={item.id || item._id || item.reference_id}
                 category={item.category}
                 description={item.description}
                 amount={String(item.amount)}
-                time={item.time}
+                time={item.timestamp || item.created_at || item.time}
                 sign={item.sign}
-                icon={
-                  <SvgIcon 
-                    name={
-                      item.category.toLowerCase().includes('shop') ? 'shoppingIconExpense' :
-                      item.category.toLowerCase().includes('sub') ? 'subscribeExpese' :
-                      'foodIconExpense'
-                    } 
-                    width={scale(24)} 
-                    height={scale(24)} 
-                    color={
-                      item.category.toLowerCase().includes('shop') ? '#F59E0B' :
-                      item.category.toLowerCase().includes('sub') ? '#8B5CF6' :
-                      '#EF4444'
-                    } 
-                  />
-                }
-                iconBg={
-                  item.category.toLowerCase().includes('shop') ? '#FEF3C7' :
-                  item.category.toLowerCase().includes('sub') ? '#EDE9FE' :
-                  '#FEE2E2'
-                }
               />
             ))}
 
-            <View style={styles.todaySection}>
-              <Text style={styles.todayLabel}>Today</Text>
-            </View>
+
           </>
         )}
 

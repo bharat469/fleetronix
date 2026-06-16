@@ -3,14 +3,17 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import HomeScreen from '../screen/postAuth/homeScreen';
 import ProfileScreen from '../screen/postAuth/ProfileScreen';
+import NotificationsScreen from '../screen/postAuth/NotificationsScreen';
 import {
   HomeTabIcon,
-  WalletTabIcon,
-  ChatTabIcon,
+  NotificationTabIcon,
   ProfileTabIcon
 } from '../assets/svgIcons';
 
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import { useNotifications } from '../hooks/useNotifications';
 
 const Tab = createBottomTabNavigator();
 
@@ -23,6 +26,15 @@ const PlaceholderScreen = ({ route }: any) => (
 
 const TabNavigator = () => {
   const { t } = useTranslation();
+  const { userToken } = useSelector((state: RootState) => state.auth);
+
+  // Fetch unread count (share query params with NotificationsScreen for cache deduplication)
+  const { data: notificationsData } = useNotifications(
+    { page: 1, per_page: 50 },
+    !!userToken
+  );
+
+  const unreadCount = notificationsData?.data?.unread_count || 0;
 
   return (
     <Tab.Navigator
@@ -39,7 +51,9 @@ const TabNavigator = () => {
         name="HomeTab"
         component={HomeScreen}
         options={{
-          tabBarLabel: t('home_tab'),
+          tabBarLabel: ({ focused, color }) => focused ? (
+            <Text style={[styles.tabBarLabel, { color }]}>{t('home_tab')}</Text>
+          ) : null,
           tabBarIcon: ({ focused }) => (
             <View style={styles.tabIconContainer}>
               {focused && <View style={styles.activeIndicator} />}
@@ -49,29 +63,44 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="Wallet"
-        component={PlaceholderScreen}
-        initialParams={{ name: t('wallet_tab') }}
+        name="Notification"
+        component={NotificationsScreen}
         options={{
-          tabBarLabel: t('wallet_tab'),
-          tabBarIcon: ({ focused }) => <WalletTabIcon focused={focused} />,
+          tabBarLabel: ({ focused, color }) => focused ? (
+            <Text style={[styles.tabBarLabel, { color }]}>{t('notification_tab')}</Text>
+          ) : null,
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.tabIconContainer}>
+              {focused && <View style={styles.activeIndicator} />}
+              <View style={{ position: 'relative' }}>
+                <NotificationTabIcon focused={focused} />
+                {unreadCount > 0 && (
+                  <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ),
         }}
       />
-      <Tab.Screen
-        name="Chat"
-        component={PlaceholderScreen}
-        initialParams={{ name: t('chat_tab') }}
-        options={{
-          tabBarLabel: t('chat_tab'),
-          tabBarIcon: ({ focused }) => <ChatTabIcon focused={focused} />,
-        }}
-      />
+
+
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: t('profile_tab'),
-          tabBarIcon: ({ focused }) => <ProfileTabIcon focused={focused} />,
+          tabBarLabel: ({ focused, color }) => focused ? (
+            <Text style={[styles.tabBarLabel, { color }]}>{t('profile_tab')}</Text>
+          ) : null,
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.tabIconContainer}>
+              {focused && <View style={styles.activeIndicator} />}
+              <ProfileTabIcon focused={focused} />
+            </View>
+          ),
         }}
       />
     </Tab.Navigator>
@@ -107,6 +136,24 @@ const styles = StyleSheet.create({
     height: 3,
     backgroundColor: '#CC2B2B',
     borderRadius: 2,
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: '#CC2B2B',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

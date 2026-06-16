@@ -227,7 +227,11 @@ export const confirmDelivery = async (payload: ConfirmDeliveryPayload): Promise<
   if (documents?.length) {
     documents.forEach((doc, index) => {
       const uri = doc.uri;
-      const cleanPath = uri.replace('file://', '');
+      const cleanPath = uri.startsWith('file://')
+        ? decodeURIComponent(uri.replace('file://', ''))
+        : uri;
+
+      console.log(`[tripApi] 📂 Attaching file: key="documents", filename="${doc.name || `document_${index}.jpg`}", path="${cleanPath}", type="${doc.type || 'image/jpeg'}"`);
 
       multipartBody.push({
         name: 'documents', // IMPORTANT: same key for multiple files
@@ -437,7 +441,7 @@ export const fetchPublicRequests = async (params: Partial<PublicRequestsParams> 
 
 export const respondToTripRequest = async (
   requestNumber: string,
-  action: 'accept' | 'decline',
+  action: 'accept' | 'reject',
   notes: string = ''
 ): Promise<any> => {
   const url = `driver/trips/requests/${requestNumber}/respond`;
@@ -454,7 +458,7 @@ export interface TripRequestsParams {
 
 export const fetchTripRequests = async (params: TripRequestsParams): Promise<any> => {
   const { status, page = 1, per_page = 20 } = params;
-  const url = `driver/trips/requests?status=${status}&page=${page}&per_page=${per_page}`;
+  const url = `driver/trips/requests?page=${page}&per_page=${per_page}`;
   console.log(`[${new Date().toLocaleTimeString()}] [tripApi] GET Trip Requests status=${status} page=${page}`);
   const response = await apiClient.get(url);
   return response.data;

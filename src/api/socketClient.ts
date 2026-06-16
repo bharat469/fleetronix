@@ -31,11 +31,11 @@ class SocketService {
       console.log('[Socket] 🟢 Connected to realtime server');
     });
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', (reason: any) => {
       console.log('[Socket] 🔴 Disconnected:', reason);
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', (error: any) => {
       console.error('[Socket] ❌ Connection Error:', error.message);
     });
   }

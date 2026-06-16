@@ -43,3 +43,26 @@ export const getStates = async (): Promise<GetStatesResponse> => {
   console.log('[getStates] ✅ Success response:', JSON.stringify(response.data, null, 2));
   return response.data as GetStatesResponse;
 };
+
+export interface CityData {
+  id: string;
+  name: string;
+  state_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetCitiesResponse {
+  success: boolean;
+  message: string;
+  data: CityData[];
+}
+
+export const getCities = async (): Promise<GetCitiesResponse> => {
+  console.log('[getCities] 📥 Fetching cities...');
+  const response = await apiClient.get('/master/cities');
+  console.log('[getCities] ✅ Success response:', JSON.stringify(response.data, null, 2));
+  return response.data as GetCitiesResponse;
+};
+

@@ -9,8 +9,9 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
+import { setTripId } from '../../../redux/slices/tripSlice';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../helpers/values/colors';
 import { getFontFamily } from '../../../helpers/fonts';
@@ -32,7 +33,14 @@ const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
   const { t } = useTranslation();
   const tripRedux = useSelector((state: RootState) => state.trip);
   const { trip } = route.params;
-  const tripId = tripRedux.tripId || trip?.trip_id;
+  const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
+  const dispatch = useDispatch();
+
+  React.useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
   console.log('sdjhjklsd', trip)
 

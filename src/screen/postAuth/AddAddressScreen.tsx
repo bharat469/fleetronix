@@ -19,7 +19,6 @@ import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import {
   BackArrowIcon,
-  SearchIcon,
   EditPenIcon,
   ChevronRightIcon,
   LocationIcon,
@@ -55,6 +54,7 @@ const TargetIcon = () => (
 const AddAddressScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
+  const mapRef = React.useRef<MapView>(null);
   const { userToken, driverId } = useSelector((state: RootState) => state.auth);
   const { data: driverData } = useDriverInfo(driverId || '', userToken || '');
   const driver = driverData?.data;
@@ -114,6 +114,13 @@ const AddAddressScreen = () => {
   });
 
   const handleRegionChangeComplete = (newRegion: any) => {
+    // Check if the change is significant (approx. 10 meters) to avoid loop spam
+    const latDiff = Math.abs(region.latitude - newRegion.latitude);
+    const lngDiff = Math.abs(region.longitude - newRegion.longitude);
+    if (latDiff < 0.0001 && lngDiff < 0.0001) {
+      return;
+    }
+
     setRegion(newRegion);
     getAddress({ lat: newRegion.latitude, lng: newRegion.longitude });
   };
@@ -150,22 +157,27 @@ const AddAddressScreen = () => {
           const newRegion = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+            latitudeDelta: 0.0122,
+            longitudeDelta: 0.0121,
           };
           setRegion(newRegion);
+          mapRef.current?.animateToRegion(newRegion, 1000);
           getAddress({ lat: position.coords.latitude, lng: position.coords.longitude });
         },
         (error) => {
           console.log('[Geolocation Error]', error.code, error.message);
           Alert.alert('Location Error', 'Could not get your location. Please check your GPS.');
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 }
       );
     } catch (err) {
       console.error('[getCurrentLocation] Error:', err);
     }
   };
+
+  React.useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
   const handleEnterAddress = () => {
     navigation.navigate('EnterAddress', {
@@ -187,9 +199,6 @@ const AddAddressScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Account</Text>
         </View>
-        <TouchableOpacity>
-          <SearchIcon />
-        </TouchableOpacity>
       </View>
       <DriverProfileHeader
         driver={driver}
@@ -216,9 +225,10 @@ const AddAddressScreen = () => {
       {/* Real Map View */}
       <View style={styles.mapContainer}>
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
-          region={region}
+          initialRegion={region}
           onRegionChangeComplete={handleRegionChangeComplete}
         >
           <Marker

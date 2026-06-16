@@ -10,6 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -20,10 +22,10 @@ import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import {
   BackArrowIcon,
-  SearchIcon,
   EditPenIcon,
   LocationIcon,
   ChevronRightIcon,
+  HomeHouseIcon,
 } from '../../assets/svgIcons';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -157,7 +159,7 @@ const EnterAddressScreen = () => {
 
       if (response.success) {
         AlertHelper.success('Success', 'Address updated successfully!', () => {
-          navigation.navigate('KYC');
+          navigation.navigate('KYC', { fromAccount: true });
         }, 'Next');
         refetch();
       } else {
@@ -181,117 +183,123 @@ const EnterAddressScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Account</Text>
         </View>
-        <TouchableOpacity>
-          <SearchIcon />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-        <DriverProfileHeader
-          driver={driver}
-          imageSize={60}
-          showEditButton={true}
-          isUpdating={isUpdatingProfilePic}
-          onEditPress={() => setIsPickerVisible(true)}
-          containerStyle={{ paddingHorizontal: scale(20), marginVertical: verticalScale(10), marginBottom: verticalScale(30) }}
-        />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      >
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
+          <DriverProfileHeader
+            driver={driver}
+            imageSize={60}
+            showEditButton={true}
+            isUpdating={isUpdatingProfilePic}
+            onEditPress={() => setIsPickerVisible(true)}
+            containerStyle={{ paddingHorizontal: scale(20), marginVertical: verticalScale(10), marginBottom: verticalScale(30) }}
+          />
 
-
-
-        {/* Map Preview Section */}
-        <View style={styles.mapPreviewContainer}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            region={region}
-            scrollEnabled={false}
-            zoomEnabled={false}
-          >
-            <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }}>
-              <View style={styles.customMarker}>
-                <LocationIcon color="#FF3B30" width={40} height={40} />
-              </View>
-            </Marker>
-          </MapView>
-        </View>
-
-        <View style={styles.contentCard}>
-          <Text style={styles.mainTitle}>Enter Complete Address</Text>
-          <View style={styles.divider} />
-          {/* Form Fields */}
-          <View style={styles.form}>
-            <Text style={styles.label}>Flat / House no / Floor / Building*</Text>
-            <View style={styles.inputWrapper}>
-              <View style={styles.iconContainer}>
-                <LocationIcon color="#424242" width={18} height={18} />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Flat / House no / Floor / Building*"
-                placeholderTextColor="#9E9E9E"
-                value={formData.houseNo}
-                onChangeText={(text) => handleInputChange('houseNo', text)}
-              />
-            </View>
-
-            <Text style={styles.label}>Area / Sector / Locality*</Text>
-            <View style={styles.inputWrapper}>
-              <View style={styles.iconContainer}>
-                <AreaIcon />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Area / Sector / Locality*"
-                placeholderTextColor="#9E9E9E"
-                value={formData.area}
-                onChangeText={(text) => handleInputChange('area', text)}
-              />
-            </View>
-
-            <Text style={styles.label}>Nearby landmark (optional)</Text>
-            <View style={styles.inputWrapper}>
-              <View style={styles.iconContainer}>
-                <LocationIcon color="#424242" width={18} height={18} />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Nearby landmark"
-                placeholderTextColor="#9E9E9E"
-                value={formData.landmark}
-                onChangeText={(text) => handleInputChange('landmark', text)}
-              />
-            </View>
-
-            <Text style={styles.label}>Pincode*</Text>
-            <View style={styles.inputWrapper}>
-              <View style={styles.iconContainer}>
-                <LocationIcon color="#424242" width={18} height={18} />
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="Pincode*"
-                placeholderTextColor="#9E9E9E"
-                keyboardType="numeric"
-                value={formData.pincode}
-                onChangeText={(text) => handleInputChange('pincode', text)}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.submitBtn, loading && { opacity: 0.7 }]}
-              activeOpacity={0.8}
-              onPress={handleSubmit}
-              disabled={loading}
+          {/* Map Preview Section */}
+          <View style={styles.mapPreviewContainer}>
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              style={styles.map}
+              region={region}
+              scrollEnabled={false}
+              zoomEnabled={false}
             >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.submitBtnText}>Save and Submit</Text>
-              )}
-            </TouchableOpacity>
+              <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }}>
+                <View style={styles.customMarker}>
+                  <LocationIcon color="#FF3B30" width={40} height={40} />
+                </View>
+              </Marker>
+            </MapView>
           </View>
-        </View>
-      </ScrollView>
+
+          <View style={styles.contentCard}>
+            <Text style={styles.mainTitle}>Enter Complete Address</Text>
+            <View style={styles.divider} />
+            {/* Form Fields */}
+            <View style={styles.form}>
+              <Text style={styles.label}>Flat / House no / Floor / Building*</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.iconCircle}>
+                  <HomeHouseIcon color="white" width={scale(12)} height={scale(12)} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Flat / House no / Floor / Building*"
+                  placeholderTextColor="#9E9E9E"
+                  value={formData.houseNo}
+                  onChangeText={(text) => handleInputChange('houseNo', text)}
+                />
+              </View>
+
+              <Text style={styles.label}>Area / Sector / Locality*</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.iconCircle}>
+                  <View style={{ width: scale(10), height: scale(10), borderWidth: 1, borderColor: 'white', borderStyle: 'dashed', borderRadius: 2 }} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Area / Sector / Locality*"
+                  placeholderTextColor="#9E9E9E"
+                  value={formData.area}
+                  onChangeText={(text) => handleInputChange('area', text)}
+                />
+              </View>
+
+              <Text style={styles.label}>Nearby landmark (optional)</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.iconCircle}>
+                  <LocationIcon color="white" width={scale(10)} height={scale(10)} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nearby landmark"
+                  placeholderTextColor="#9E9E9E"
+                  value={formData.landmark}
+                  onChangeText={(text) => handleInputChange('landmark', text)}
+                />
+              </View>
+
+              <Text style={styles.label}>Pincode*</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.iconCircle}>
+                  <LocationIcon color="white" width={scale(10)} height={scale(10)} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Pincode*"
+                  placeholderTextColor="#9E9E9E"
+                  keyboardType="numeric"
+                  value={formData.pincode}
+                  onChangeText={(text) => handleInputChange('pincode', text)}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+                onPress={handleSubmit}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Save and Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <ImagePickerModal
         isVisible={isPickerVisible}
@@ -406,13 +414,24 @@ const styles = StyleSheet.create({
     height: verticalScale(55),
     paddingHorizontal: scale(15),
   },
-  iconContainer: {
-    marginRight: scale(12),
+  iconCircle: {
+    width: scale(26),
+    height: scale(26),
+    borderRadius: scale(13),
+    backgroundColor: '#424242',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(10),
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: verticalScale(40),
   },
   input: {
     flex: 1,
     fontSize: moderateScale(14),
     color: '#000',
+    paddingVertical: 0,
   },
   submitBtn: {
     backgroundColor: COLORS.primary,

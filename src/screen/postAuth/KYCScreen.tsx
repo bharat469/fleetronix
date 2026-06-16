@@ -7,9 +7,10 @@ import {
   Image,
   ScrollView,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useDriverInfo } from '../../hooks/useAuth';
@@ -17,10 +18,11 @@ import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import {
   BackArrowIcon,
-  SearchIcon,
   EditPenIcon,
   ShieldCheckIcon,
   CloseCircleIcon,
+  EyeIcon,
+  DownloadIcon,
 } from '../../assets/svgIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
@@ -31,6 +33,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertHelper } from '../../components/common/AlertPopup';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { useImageSelection } from '../../helpers/useImageSelection';
+import { resolveImageUrl } from '../../helpers/urlHelper';
+import { downloadFile } from '../../helpers/downloadHelper';
 
 const FolderIcon = () => (
   <View style={{ width: 24, height: 24 }}>
@@ -39,7 +43,7 @@ const FolderIcon = () => (
   </View>
 );
 
-const DocSection = ({ label, fileName, status, statusType, onRemove }: any) => {
+const DocSection = ({ label, fileName, status, statusType, onRemove, onView, onDownload }: any) => {
   const isVerified = statusType === 'verified';
   const isError = statusType === 'error';
 
@@ -58,6 +62,23 @@ const DocSection = ({ label, fileName, status, statusType, onRemove }: any) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {(onView || onDownload) && (
+        <View style={styles.docActionRow}>
+          {onView && (
+            <TouchableOpacity style={styles.actionBtnOutline} onPress={onView} activeOpacity={0.7}>
+              <EyeIcon color="#CA2027" width={16} height={16} style={styles.actionBtnIcon} />
+              <Text style={styles.actionBtnLabel}>View Document</Text>
+            </TouchableOpacity>
+          )}
+          {onDownload && (
+            <TouchableOpacity style={styles.actionBtnOutline} onPress={onDownload} activeOpacity={0.7}>
+              <DownloadIcon color="#CA2027" width={16} height={16} style={styles.actionBtnIcon} />
+              <Text style={styles.actionBtnLabel}>Download</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {status && (
         <View style={[
@@ -83,10 +104,36 @@ const DocSection = ({ label, fileName, status, statusType, onRemove }: any) => {
 
 const KYCScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'KYC'>>();
+  const fromAccount = route.params?.fromAccount;
   const queryClient = useQueryClient();
   const { userToken, driverId } = useSelector((state: RootState) => state.auth);
   const { data: driverData } = useDriverInfo(driverId || '', userToken || '');
   const driver = driverData?.data;
+
+  const aadharUrl = driver?.aadhar_path 
+    ? resolveImageUrl(driver.aadhar_path) 
+    : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+    
+  const panUrl = driver?.pan_card_path 
+    ? resolveImageUrl(driver.pan_card_path) 
+    : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+    
+  const licenseUrl = driver?.driving_licence_path 
+    ? resolveImageUrl(driver.driving_licence_path) 
+    : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+  const handleViewDoc = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch (error: any) {
+      AlertHelper.error('Error', 'Unable to open document: ' + error.message);
+    }
+  };
+
+  const handleDownloadDoc = async (url: string, label: string) => {
+    await downloadFile(url, label);
+  };
 
   const { mutate: updateDriverProfile, isPending: isUpdating } = useUpdateDriver({
     onSuccess: () => {
@@ -117,6 +164,12 @@ const KYCScreen = () => {
 
   const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
+  const handleSubmit = () => {
+    AlertHelper.success('Success', 'KYC documents submitted successfully!', () => {
+      navigation.navigate('Status');
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -127,9 +180,6 @@ const KYCScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>KYC</Text>
         </View>
-        <TouchableOpacity>
-          <SearchIcon />
-        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -146,39 +196,48 @@ const KYCScreen = () => {
           <Text style={styles.sectionHeading}>Documents</Text>
 
           <DocSection
-            label="Aadhar"
-            fileName="Aadhar453.pdf"
-            status="Aadhar documents verified"
-            statusType="verified"
+            label="Aadhaar"
+            fileName={driver?.aadhar_path ? driver.aadhar_path.split('/').pop() : "Not Uploaded"}
+            status={driver?.aadhar_path ? "Aadhaar documents verified" : "Aadhaar not uploaded"}
+            statusType={driver?.aadhar_path ? "verified" : "error"}
+            onView={driver?.aadhar_path ? () => handleViewDoc(aadharUrl) : undefined}
+            onDownload={driver?.aadhar_path ? () => handleDownloadDoc(aadharUrl, 'Aadhaar') : undefined}
           />
 
           <DocSection
             label="PAN"
-            fileName="PAN Card.pdf"
-            status="PAN not verified due to mismatch of address proof."
-            statusType="error"
+            fileName={driver?.pan_card_path ? driver.pan_card_path.split('/').pop() : "Not Uploaded"}
+            status={driver?.pan_card_path ? "PAN verified" : "PAN not uploaded or pending verification"}
+            statusType={driver?.pan_card_path ? "verified" : "error"}
+            onView={driver?.pan_card_path ? () => handleViewDoc(panUrl) : undefined}
+            onDownload={driver?.pan_card_path ? () => handleDownloadDoc(panUrl, 'PAN_Card') : undefined}
           />
 
           <DocSection
             label="License"
-            fileName="drivinglicense.pdf"
-            status="driving license verified"
-            statusType="verified"
+            fileName={driver?.driving_licence_path ? driver.driving_licence_path.split('/').pop() : "Not Uploaded"}
+            status={driver?.driving_licence_path ? "driving license verified" : "driving license not uploaded"}
+            statusType={driver?.driving_licence_path ? "verified" : "error"}
+            onView={driver?.driving_licence_path ? () => handleViewDoc(licenseUrl) : undefined}
+            onDownload={driver?.driving_licence_path ? () => handleDownloadDoc(licenseUrl, 'Driving_License') : undefined}
           />
         </View>
       </ScrollView>
 
-      {/* Primary Submit Button */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity
-          style={styles.submitBtn}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Status')}
-        >
-          <ShieldCheckIcon />
-          <Text style={styles.submitBtnText}>Submit</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Bottom Actions */}
+      {fromAccount && (
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={styles.submitBtn}
+            activeOpacity={0.8}
+            onPress={handleSubmit}
+          >
+            <ShieldCheckIcon color="white" />
+            <Text style={styles.submitBtnText}>Submit</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ImagePickerModal
         isVisible={isPickerVisible}
         onClose={() => setIsPickerVisible(false)}
@@ -363,6 +422,32 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(16),
     fontWeight: '600',
     marginLeft: scale(10),
+  },
+  docActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: verticalScale(15),
+    paddingLeft: '25%',
+    marginLeft: scale(10),
+  },
+  actionBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CA2027',
+    borderRadius: scale(8),
+    paddingVertical: verticalScale(6),
+    paddingHorizontal: scale(12),
+    marginRight: scale(10),
+    backgroundColor: '#FFF9F9',
+  },
+  actionBtnIcon: {
+    marginRight: scale(6),
+  },
+  actionBtnLabel: {
+    fontSize: moderateScale(12),
+    color: '#CA2027',
+    fontWeight: '600',
   },
 });
 

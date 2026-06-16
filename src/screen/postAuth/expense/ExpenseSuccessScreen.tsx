@@ -7,8 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Share,
 } from 'react-native';
+import Share from 'react-native-share';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
@@ -16,6 +16,7 @@ import { scale, verticalScale, moderateScale } from '../../../helpers/dimension'
 import { getFontFamily } from '../../../helpers/fonts';
 import { CloseIcon, ShareIcon, DownloadIcon, ShieldCheckIcon } from '../../../assets/svgIcons';
 import { useExpenseDetails, useDownloadReceipt } from '../../../hooks/useExpense';
+import { getExpensePdf } from '../../../services/expenseApi';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import moment from 'moment';
 import BottomSheetComponent from '../../../components/bottomsheet';
@@ -31,6 +32,7 @@ const ExpenseSuccessScreen = () => {
 
   const [statusSheetVisible, setStatusSheetVisible] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'success' | 'error' | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const { data: details, isLoading } = useExpenseDetails(expenseId);
   const { mutate: downloadReceipt, isPending: isDownloading } = useDownloadReceipt({
@@ -45,30 +47,29 @@ const ExpenseSuccessScreen = () => {
   });
 
   const handleShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
     try {
-      // First download or get the path
-      downloadReceipt(expenseId, {
-        onSuccess: async (path) => {
-          const shareOptions = {
-            title: 'Expense Receipt',
-            url: `file://${path}`,
-            type: 'application/pdf',
-          };
-          await Share.share(shareOptions);
-        }
-      });
+      // Fetch the pdf downloaded to CacheDir
+      const path = await getExpensePdf(expenseId, true);
+      try {
+        const shareOptions = {
+          title: 'Expense Receipt',
+          url: `file://${path}`,
+          type: 'application/pdf',
+          failOnCancel: false,
+        };
+        await Share.open(shareOptions);
+      } catch (shareError) {
+        console.log('Share.open error:', shareError);
+      }
     } catch (error) {
       console.log('Share error:', error);
+      Alert.alert('Error', 'Failed to share receipt. Please try again.');
+    } finally {
+      setIsSharing(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#CA2027" />
-      </View>
-    );
-  }
 
   const expense = details?.data;
 
@@ -81,80 +82,92 @@ const ExpenseSuccessScreen = () => {
           <CloseIcon color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Expense Added</Text>
-        <TouchableOpacity onPress={handleShare}>
-          <ShareIcon color="#374151" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.amountSection}>
-          <Text style={styles.amountLabel}>RS {expense?.amount || '0'}</Text>
-        </View>
-
-        <View style={styles.detailsCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardHeaderText}>Expense Details</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Ref Number</Text>
-            <Text style={styles.detailValue}>{expense?.expense_number || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Time</Text>
-            <Text style={styles.detailValue}>{moment(expense?.created_at).format('DD-MM-YYYY, HH:mm:ss') || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Payment Method</Text>
-            <Text style={styles.detailValue}>{expense?.mode_of_payment || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Expense Category</Text>
-            <Text style={styles.detailValue}>{expense?.category || 'N/A'}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Amount</Text>
-            <Text style={styles.detailValue}>Rs {expense?.amount || '0'}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Payment Status</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Success</Text>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.downloadBtn}
-          onPress={() => downloadReceipt(expenseId)}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <ActivityIndicator color="#374151" />
+        <TouchableOpacity onPress={handleShare} disabled={isLoading || isSharing}>
+          {isSharing ? (
+            <ActivityIndicator size="small" color="#CA2027" />
           ) : (
-            <>
-              <DownloadIcon color="#374151" width={scale(18)} height={scale(18)} />
-              <Text style={styles.downloadBtnText}>Get PDF Receipt</Text>
-            </>
+            <ShareIcon color="#374151" />
           )}
         </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.homeBtn}
-          onPress={() => navigation.navigate('ExpenseDashboard' as any)}
-        >
-          <Text style={styles.homeBtnText}>Home</Text>
-        </TouchableOpacity>
       </View>
+
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#CA2027" />
+        </View>
+      ) : (
+        <>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <View style={styles.amountSection}>
+              <Text style={styles.amountLabel}> ₹{expense?.amount || '0'}</Text>
+            </View>
+
+            <View style={styles.detailsCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardHeaderText}>Expense Details</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Ref Number</Text>
+                <Text style={styles.detailValue}>{expense?.expense_number || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Time</Text>
+                <Text style={styles.detailValue}>{moment(expense?.created_at).format('DD-MM-YYYY, HH:mm:ss') || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Payment Method</Text>
+                <Text style={styles.detailValue}>{expense?.mode_of_payment || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Expense Category</Text>
+                <Text style={styles.detailValue}>{expense?.category || 'N/A'}</Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Amount</Text>
+                <Text style={styles.detailValue}>₹{expense?.amount || '0'}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Payment Status</Text>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>Success</Text>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              style={styles.downloadBtn}
+              onPress={() => downloadReceipt(expenseId)}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <ActivityIndicator color="#374151" />
+              ) : (
+                <>
+                  <DownloadIcon color="#374151" width={scale(18)} height={scale(18)} />
+                  <Text style={styles.downloadBtnText}>Get PDF Receipt</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.homeBtn}
+              onPress={() => navigation.navigate('ExpenseDashboard' as any)}
+            >
+              <Text style={styles.homeBtnText}>Home</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <BottomSheetComponent 
         isVisible={statusSheetVisible} 

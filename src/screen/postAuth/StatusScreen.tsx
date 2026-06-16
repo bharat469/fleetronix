@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import { COLORS } from '../../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import {
   BackArrowIcon,
-  SearchIcon,
   EditPenIcon,
   ShieldCheckIcon,
 } from '../../assets/svgIcons';
@@ -63,7 +62,7 @@ const StatusScreen = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
       AlertHelper.success('Success', 'Status updated successfully', () => {
-        navigation.navigate('Home');
+        navigation.navigate('Home', { screen: 'Profile' } as any);
       });
     },
     onError: (error) => {
@@ -101,10 +100,20 @@ const StatusScreen = () => {
   const { isPickerVisible, setIsPickerVisible, pickImage, takePhoto } = useImageSelection(onImageSelected);
 
   const [statuses, setStatuses] = useState({
-    available: driver?.status === 'available',
-    sleeping: driver?.status === 'sleeping',
-    driving: driver?.status === 'driving',
+    available: false,
+    sleeping: false,
+    driving: false,
   });
+
+  useEffect(() => {
+    if (driver?.status) {
+      setStatuses({
+        available: driver.status === 'available',
+        sleeping: driver.status === 'on_leave',
+        driving: driver.status === 'assigned',
+      });
+    }
+  }, [driver?.status]);
 
   const handleToggle = (key: string) => {
     // Mutual exclusivity: only one can be true at a time
@@ -120,8 +129,8 @@ const StatusScreen = () => {
     if (statuses.sleeping) currentStatus = 'on_leave';
     if (statuses.driving) currentStatus = 'assigned';
 
-    // is_active is false if sleeping, true otherwise
-    const isActivePayload = currentStatus !== 'on_leave';
+    // Driver is active (is_active: true) if status is Available or Driving. If Sleeping (on_leave), they are inactive.
+    const isActivePayload = currentStatus === 'available' || currentStatus === 'assigned';
 
     const payload = {
       driverId: driverId || '',
@@ -145,9 +154,6 @@ const StatusScreen = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Status</Text>
         </View>
-        <TouchableOpacity>
-          <SearchIcon />
-        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>

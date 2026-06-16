@@ -36,13 +36,13 @@ import { Asset } from 'react-native-image-picker';
 import { useAddExpense } from '../../../hooks/useExpense';
 
 interface Attachment {
-  uri: string | null;
-  type: string | null;
-  name: string | null;
-  isImage: boolean | null;
+  uri?: string;
+  type?: string;
+  name?: string;
+  isImage?: boolean;
 }
 
-const mockCategories = ['Toll', 'Food', 'Subscription', 'Repairing', 'Tire Changing', 'Fuel','Loading/unloading','Lodging','Cleaning','Other'];
+const mockCategories = ['Fuel', 'Toll', 'Repairing', 'Food', 'Lodging', 'Loading/unloading', 'Cleaning', 'Shopping', 'Subscription'];
 const mockWallets = ['UPI', 'Cash', 'bank transfer', 'wallet','cheque'];
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -95,10 +95,10 @@ const AddExpenseScreen = () => {
       });
     
       setAttachment({
-        uri: result.uri,
-        type: result.type,
-        name: result.name,
-        isImage: result.type?.startsWith('image/')
+        uri: result.uri || undefined,
+        type: result.type || undefined,
+        name: result.name || undefined,
+        isImage: result.type ? result.type.startsWith('image/') : false
       });
       setIsSheetVisible(false);
     } catch (err) {
@@ -177,8 +177,9 @@ const AddExpenseScreen = () => {
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="numeric"
-                placeholder="0"
+                placeholder="Enter Amount"
                 placeholderTextColor="rgba(255,255,255,0.6)"
+                autoFocus={true}
               />
             </View>
           </View>
@@ -233,7 +234,7 @@ const AddExpenseScreen = () => {
           {attachment ? (
             <View style={styles.attachmentPreviewContainer}>
               {attachment.isImage ? (
-                <Image source={{ uri: attachment.uri }} style={styles.attachmentImage} />
+                <Image source={{ uri: attachment.uri || undefined }} style={styles.attachmentImage} />
               ) : (
                 <View style={[styles.attachmentImage, styles.documentPlaceholder]}>
                   <DocumentIcon color="#CA2027" />

@@ -14,6 +14,7 @@ import LocationEnableScreen from '../screen/preAuth/LocationEnableScreen';
 import SelectTruckScreen from '../screen/preAuth/SelectTruckScreen';
 import SelectStateScreen from '../screen/preAuth/SelectStateScreen';
 import VerifyDocumentsScreen from '../screen/preAuth/VerifyDocumentsScreen';
+import ProfilePicScreen from '../screen/preAuth/ProfilePicScreen';
 import ReadyToDriveScreen from '../screen/preAuth/ReadyToDriveScreen';
 import CallVerificationScreen from '../screen/preAuth/CallVerificationScreen';
 import TabNavigator from './TabNavigator';
@@ -42,7 +43,10 @@ import DeliveryScreen from '../screen/postAuth/newTrip/DeliveryScreen';
 import ExpenseDashboardScreen from '../screen/postAuth/expense/ExpenseDashboardScreen';
 import AddExpenseScreen from '../screen/postAuth/expense/AddExpenseScreen';
 import ExpenseSuccessScreen from '../screen/postAuth/expense/ExpenseSuccessScreen';
+import AllExpensesScreen from '../screen/postAuth/expense/AllExpensesScreen';
 import TransporterScreen from '../screen/postAuth/TransporterScreen';
+import SupportScreen from '../screen/postAuth/SupportScreen';
+import PODScreen from '../screen/postAuth/PODScreen';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { View, ActivityIndicator } from 'react-native';
 import { RootStackParamList } from './types';
@@ -94,7 +98,13 @@ export const RootNavigator = () => {
     <View style={{ flex: 1 }}>
 
       <Stack.Navigator
-        initialRouteName={userToken && purpose ? 'Home' : 'Onboarding'}
+        initialRouteName={
+          userToken
+            ? purpose === 'register'
+              ? 'LocationEnable'
+              : 'Home'
+            : 'Onboarding'
+        }
         screenOptions={{ headerShown: false }}
       >
         {userToken == null ? (
@@ -108,6 +118,7 @@ export const RootNavigator = () => {
             <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
             <Stack.Screen name="SelectState" component={SelectStateScreen} />
             <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
+            <Stack.Screen name="ProfilePic" component={ProfilePicScreen} />
             <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
             <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
           </Stack.Group>
@@ -117,6 +128,7 @@ export const RootNavigator = () => {
             <Stack.Screen name="SelectTruck" component={SelectTruckScreen} />
             <Stack.Screen name="SelectState" component={SelectStateScreen} />
             <Stack.Screen name="VerifyDocuments" component={VerifyDocumentsScreen} />
+            <Stack.Screen name="ProfilePic" component={ProfilePicScreen} />
             <Stack.Screen name="ReadyToDrive" component={ReadyToDriveScreen} />
             <Stack.Screen name="CallVerification" component={CallVerificationScreen} />
           </Stack.Group>
@@ -148,7 +160,10 @@ export const RootNavigator = () => {
             <Stack.Screen name="ExpenseDashboard" component={ExpenseDashboardScreen} />
             <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
             <Stack.Screen name="ExpenseSuccess" component={ExpenseSuccessScreen} />
+            <Stack.Screen name="AllExpenses" component={AllExpensesScreen} />
             <Stack.Screen name="TransporterScreen" component={TransporterScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="POD" component={PODScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>

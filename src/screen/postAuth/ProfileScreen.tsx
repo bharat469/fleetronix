@@ -13,13 +13,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { useDriverInfo, useUpdateDriver } from '../../hooks/useAuth';
 import { logout } from '../../redux/slices/authSlice';
+import { resetTrip } from '../../redux/slices/tripSlice';
+import { resetRegistrationData } from '../../redux/slices/registrationSlice';
 import { storage } from '../../helpers/asyncHelper';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import {
-  SearchIcon,
   LogoutMenuIcon,
   ChevronRightIcon,
 
@@ -91,11 +92,11 @@ const ProfileScreen = () => {
 
   const handleLogout = async () => {
     try {
-      await storage.remove('userToken');
-      await storage.remove('refreshToken');
-      await storage.remove('driverId');
-      await storage.remove('purpose');
+      await storage.clear();
+      queryClient.clear();
       dispatch(logout());
+      dispatch(resetTrip());
+      dispatch(resetRegistrationData());
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -106,7 +107,6 @@ const ProfileScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="white" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity><SearchIcon /></TouchableOpacity>
       </View>
       <ScrollView showsVerticalScrollIndicator={false}>
         <DriverProfileHeader
@@ -121,7 +121,6 @@ const ProfileScreen = () => {
           <MenuItem icon={accountMenuIcon} label="Account" onPress={() => navigation.navigate('AccountDetails')} />
           <MenuItem icon={kycMenuIcon} label="KYC" onPress={() => navigation.navigate('KYC')} />
           <MenuItem icon={statusMenuIcon} label="Status" onPress={() => navigation.navigate('Status')} />
-          <MenuItem icon={notificationMenuIcon} label="Notification" onPress={() => { }} />
           <View style={{ height: 100 }} />
           <MenuItem icon={LogoutMenuIcon} label="Logout" onPress={handleLogout} isLogout={true} />
         </View>

@@ -80,7 +80,12 @@ const tripSlice = createSlice({
   reducers: {
     setActiveTripData: (state, action: PayloadAction<Record<string, any>>) => {
       const d = action.payload;
-      state.tripId = d.trip_id ?? d.id ?? null;
+      if (d && typeof d === 'object') {
+        const id = d.trip_id ?? d.id;
+        if (id) {
+          state.tripId = id;
+        }
+      }
       // Removed saving other fields as per request
     },
 

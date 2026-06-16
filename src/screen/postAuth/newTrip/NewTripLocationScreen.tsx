@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Text,
   StyleSheet,
@@ -10,6 +10,9 @@ import {
   PermissionsAndroid,
   Platform,
   Alert,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +26,9 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { useDriverInfo } from '../../../hooks/useAuth';
 import Geolocation from 'react-native-geolocation-service';
+import { useQuery } from '@tanstack/react-query';
+import { getStates, getCities, StateData, CityData } from '../../../api/masterApi';
+import { getFontFamily } from '../../../helpers/fonts';
 
 const TargetIcon = () => (
   <View style={{ width: scale(20), height: scale(20), borderRadius: scale(10), borderWidth: 2, borderColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' }}>
@@ -42,6 +48,76 @@ const NewTripLocationScreen = () => {
   const [selectedAddress, setSelectedAddress] = useState(true);
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
+  const [selectedState, setSelectedState] = useState<StateData | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const { data: statesData } = useQuery({
+    queryKey: ['states'],
+    queryFn: getStates,
+  });
+
+  const { data: citiesData } = useQuery({
+    queryKey: ['cities'],
+    queryFn: getCities,
+  });
+
+  const [showStateSuggestions, setShowStateSuggestions] = useState(false);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+
+  const filteredStates = useMemo(() => {
+    if (!statesData?.data) return [];
+    if (!state.trim()) return statesData.data;
+    return statesData.data.filter((s) =>
+      s.name.toLowerCase().includes(state.toLowerCase())
+    );
+  }, [statesData, state]);
+
+  const filteredCities = useMemo(() => {
+    if (!citiesData?.data) return [];
+    let list = citiesData.data;
+    if (selectedState) {
+      list = list.filter((c) => String(c.state_id) === String(selectedState.id));
+    }
+    if (!city.trim()) return list;
+    return list.filter((c) =>
+      c.name.toLowerCase().includes(city.toLowerCase())
+    );
+  }, [citiesData, selectedState, city]);
+
+  const handleSelectState = (selectedStateItem: StateData) => {
+    setState(selectedStateItem.name);
+    setSelectedState(selectedStateItem);
+    setCity('');
+    setShowStateSuggestions(false);
+  };
+
+  const handleSelectCity = (selectedCity: CityData) => {
+    setCity(selectedCity.name);
+    setShowCitySuggestions(false);
+  };
+
+  const handleCloseSuggestions = () => {
+    setShowStateSuggestions(false);
+    setShowCitySuggestions(false);
+  };
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'ios') {
@@ -88,110 +164,201 @@ const NewTripLocationScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="white" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <BackArrowIcon />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Trip Location</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.topSection}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.mainTitle}>Find Location to Ride</Text>
-            <View style={styles.svgWrapper}>
-              <SvgIcon
-                name='newTrip'
-                width={scale(180)}
-                height={verticalScale(117)}
-              />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); handleCloseSuggestions(); }}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <BackArrowIcon />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>New Trip Location</Text>
             </View>
+
+            <ScrollView
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingBottom: keyboardVisible ? verticalScale(220) : verticalScale(40) }
+              ]}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.topSection}>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.mainTitle}>Find Location to Ride</Text>
+                  <View style={styles.svgWrapper}>
+                    <SvgIcon
+                      name='newTrip'
+                      width={scale(180)}
+                      height={verticalScale(117)}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.subtitle}>Select preferred location and we'll show you nearby jobs.</Text>
+              </View>
+
+              {/* Address Card */}
+              <TouchableOpacity
+                style={[styles.addressCard, selectedAddress && styles.addressCardSelected, !driver?.address && { opacity: 0.6 }]}
+                onPress={() => driver?.address && setSelectedAddress(!selectedAddress)}
+                activeOpacity={0.9}
+                disabled={!driver?.address}
+              >
+                <View style={styles.addressInfo}>
+                  <Text style={styles.addressLabel}>Address</Text>
+                  <Text style={styles.addressText}>
+                    {driver?.address || (isLoading ? 'Loading address...' : 'No address added in profile')}
+                  </Text>
+                </View>
+                <View style={styles.radioButton}>
+                  {selectedAddress && driver?.address && <View style={styles.radioInner} />}
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.dividerContainer}>
+                <View style={styles.line} />
+                <Text style={styles.orText}>or</Text>
+                <View style={styles.line} />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.autoDetectBtn} 
+                activeOpacity={0.8}
+                onPress={getCurrentLocation}
+              >
+                <TargetIcon />
+                <Text style={styles.autoDetectText}>Auto detect my location</Text>
+              </TouchableOpacity>
+
+              <View style={styles.dividerContainer}>
+                <View style={styles.line} />
+                <Text style={styles.orText}>or</Text>
+                <View style={styles.line} />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.formTitle}>Add your Choice Address/Location</Text>
+                <Text style={styles.formSubtitle}>
+                  Enter your preferred truck driving location to personalize recommendations for the best driving experiences.
+                </Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Pick Your State*</Text>
+                  <View style={styles.inputWrapper}>
+                    <SearchIcon color="#CA2027" width={20} height={20} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your Preffered State"
+                      value={state}
+                      onChangeText={(text) => {
+                        setState(text);
+                        const matched = statesData?.data?.find(
+                          (s) => s.name.trim().toLowerCase() === text.trim().toLowerCase()
+                        );
+                        setSelectedState(matched || null);
+                        setShowStateSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        setShowStateSuggestions(true);
+                        setShowCitySuggestions(false);
+                        setTimeout(() => {
+                          scrollViewRef.current?.scrollTo({ y: verticalScale(280), animated: true });
+                        }, 100);
+                      }}
+                      placeholderTextColor="#999"
+                    />
+                    {state.length > 0 && (
+                      <TouchableOpacity onPress={() => { setState(''); setSelectedState(null); setCity(''); }}>
+                        <Text style={{ fontSize: moderateScale(18), color: '#888', marginRight: scale(5) }}>×</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {showStateSuggestions && (
+                    <View style={styles.suggestionsContainer}>
+                      <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true} style={{ maxHeight: verticalScale(160) }}>
+                        {filteredStates.length > 0 ? (
+                          filteredStates.map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.suggestionItem}
+                              onPress={() => handleSelectState(item)}
+                            >
+                              <Text style={styles.suggestionText}>{item.name}</Text>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <Text style={styles.noSuggestionsText}>No matching states found</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Pick State Cities*</Text>
+                  <View style={styles.inputWrapper}>
+                    <SearchIcon color="#CA2027" width={20} height={20} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your Preffered State Cities"
+                      value={city}
+                      onChangeText={(text) => {
+                        setCity(text);
+                        setShowCitySuggestions(true);
+                      }}
+                      onFocus={() => {
+                        setShowCitySuggestions(true);
+                        setShowStateSuggestions(false);
+                        setTimeout(() => {
+                          scrollViewRef.current?.scrollToEnd({ animated: true });
+                        }, 100);
+                      }}
+                      placeholderTextColor="#999"
+                    />
+                    {city.length > 0 && (
+                      <TouchableOpacity onPress={() => setCity('')}>
+                        <Text style={{ fontSize: moderateScale(18), color: '#888', marginRight: scale(5) }}>×</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {showCitySuggestions && (
+                    <View style={styles.suggestionsContainer}>
+                      <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true} style={{ maxHeight: verticalScale(160) }}>
+                        {filteredCities.length > 0 ? (
+                          filteredCities.map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.suggestionItem}
+                              onPress={() => handleSelectCity(item)}
+                            >
+                              <Text style={styles.suggestionText}>{item.name}</Text>
+                            </TouchableOpacity>
+                          ))
+                        ) : (
+                          <Text style={styles.noSuggestionsText}>No matching cities found</Text>
+                        )}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('NewTripDate')}
+                >
+                  <Text style={styles.submitText}>Submit</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
-          <Text style={styles.subtitle}>Select preferred location and we'll show you nearby jobs.</Text>
-        </View>
-
-        {/* Address Card */}
-        <TouchableOpacity
-          style={[styles.addressCard, selectedAddress && styles.addressCardSelected, !driver?.address && { opacity: 0.6 }]}
-          onPress={() => driver?.address && setSelectedAddress(!selectedAddress)}
-          activeOpacity={0.9}
-          disabled={!driver?.address}
-        >
-          <View style={styles.addressInfo}>
-            <Text style={styles.addressLabel}>Address</Text>
-            <Text style={styles.addressText}>
-              {driver?.address || (isLoading ? 'Loading address...' : 'No address added in profile')}
-            </Text>
-          </View>
-          <View style={styles.radioButton}>
-            {selectedAddress && driver?.address && <View style={styles.radioInner} />}
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.dividerContainer}>
-          <View style={styles.line} />
-          <Text style={styles.orText}>or</Text>
-          <View style={styles.line} />
-        </View>
-
-        <TouchableOpacity 
-          style={styles.autoDetectBtn} 
-          activeOpacity={0.8}
-          onPress={getCurrentLocation}
-        >
-          <TargetIcon />
-          <Text style={styles.autoDetectText}>Auto detect my location</Text>
-        </TouchableOpacity>
-
-        <View style={styles.dividerContainer}>
-          <View style={styles.line} />
-          <Text style={styles.orText}>or</Text>
-          <View style={styles.line} />
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.formTitle}>Add your Choice Address/Location</Text>
-          <Text style={styles.formSubtitle}>
-            Enter your preferred truck driving location to personalize recommendations for the best driving experiences.
-          </Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Pick Your State*</Text>
-            <View style={styles.inputWrapper}>
-              <SearchIcon color="#CA2027" width={20} height={20} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your Preffered State"
-                value={state}
-                onChangeText={setState}
-                placeholderTextColor="#999"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Pick State Cities*</Text>
-            <View style={styles.inputWrapper}>
-              <SearchIcon color="#CA2027" width={20} height={20} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your Preffered State Cities"
-                value={city}
-                onChangeText={setCity}
-                placeholderTextColor="#999"
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.submitBtn}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('NewTripDate')}
-          >
-            <Text style={styles.submitText}>Submit</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -370,6 +537,39 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: moderateScale(18),
     fontWeight: '700',
+  },
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: moderateScale(10),
+    maxHeight: verticalScale(160),
+    marginTop: verticalScale(5),
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 999,
+  },
+  suggestionItem: {
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  suggestionText: {
+    fontSize: moderateScale(14),
+    color: '#333',
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+  },
+  noSuggestionsText: {
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(16),
+    fontSize: moderateScale(14),
+    color: '#888',
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+    textAlign: 'center',
   },
 });
 

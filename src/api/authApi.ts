@@ -135,8 +135,12 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
       const fileName = typeof value === 'object' ? (value.fileName || value.name) : null;
       const type = typeof value === 'object' ? value.type : null;
 
-      const cleanPath = uri.replace('file://', '');
+      const cleanPath = uri.startsWith('file://')
+        ? decodeURIComponent(uri.replace('file://', ''))
+        : uri;
       const name = fileName || uri.split('/').pop() || `${key}.jpg`;
+
+      console.log(`[updateDriver] 📂 Attaching file: key="${key}", filename="${name}", path="${cleanPath}", type="${type || 'image/jpeg'}"`);
 
       multipartBody.push({
         name: key,
@@ -206,6 +210,11 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
     if (status < 200 || status >= 300) {
       console.error('[updateDriver] ❌ Error:', status, json);
       throw new Error(typeof json === 'object' ? (json?.message || 'Request failed') : 'Request failed');
+    }
+
+    if (json && json.success === false) {
+      console.error('[updateDriver] ❌ Error (success=false):', json);
+      throw new Error(json.message || 'Request failed');
     }
 
     console.log('[updateDriver] ✅ Success:', json);

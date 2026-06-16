@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getFontFamily } from '../../helpers/fonts';
@@ -26,6 +27,41 @@ import { useSendOtp, useCheckMobile } from '../../hooks/useAuth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
+const getErrorTitleAndMessage = (err: any, t: any, defaultMsg: string = 'Something went wrong. Please try again.') => {
+  const rawMessage = err.response?.data?.message || err.response?.data?.error || err.message || defaultMsg;
+  let message = rawMessage;
+  let title = t('error', 'Error');
+  
+  if (typeof rawMessage === 'string') {
+    const lowerMessage = rawMessage.toLowerCase();
+    const isInactive = 
+      lowerMessage.includes('inactive') ||
+      lowerMessage.includes('deactivated') ||
+      lowerMessage.includes('not active') ||
+      lowerMessage.includes('not_active') ||
+      lowerMessage.includes('disabled') ||
+      lowerMessage.includes('blocked');
+      
+    if (isInactive) {
+      title = t('account_inactive', 'Account Inactive');
+      if (rawMessage.length < 5 || rawMessage.match(/^\d+$/)) {
+        message = t('account_inactive_message', 'Your account is inactive. Please contact support.');
+      } else {
+        message = rawMessage;
+      }
+    } else if (err.response?.status === 400) {
+      title = t('alert', 'Alert');
+      if (rawMessage === '400' || rawMessage.includes('status code 400')) {
+        message = defaultMsg;
+      }
+    } else if (!err.response) {
+      title = t('network_error', 'Network Error');
+    }
+  }
+  
+  return { title, message };
+};
+
 const LoginScreen = ({ navigation }: Props) => {
   const { t } = useTranslation();
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -33,6 +69,7 @@ const LoginScreen = ({ navigation }: Props) => {
   const [error, setError] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isApiErrorVisible, setIsApiErrorVisible] = useState(false);
+  const [apiErrorTitle, setApiErrorTitle] = useState('Error');
   const [apiErrorMessage, setApiErrorMessage] = useState('');
   const [purpose, setPurpose] = useState('');
 
@@ -41,11 +78,11 @@ const LoginScreen = ({ navigation }: Props) => {
       setIsModalVisible(false);
       navigation.navigate('OTPVerify', { phoneNumber, purpose });
     },
-    onError: (err: Error) => {
+    onError: (err: any) => {
       setIsModalVisible(false);
-      setApiErrorMessage(
-        err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.')
-      );
+      const { title, message } = getErrorTitleAndMessage(err, t, t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setApiErrorTitle(title);
+      setApiErrorMessage(message);
       setIsApiErrorVisible(true);
     },
   });
@@ -55,10 +92,10 @@ const LoginScreen = ({ navigation }: Props) => {
       setPurpose(response.data.purpose);
       setIsModalVisible(true);
     },
-    onError: (err: Error) => {
-      setApiErrorMessage(
-        err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.')
-      );
+    onError: (err: any) => {
+      const { title, message } = getErrorTitleAndMessage(err, t, t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setApiErrorTitle(title);
+      setApiErrorMessage(message);
       setIsApiErrorVisible(true);
     },
   });
@@ -84,68 +121,83 @@ const LoginScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.content}
         >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.innerContainer}>
-              <View style={styles.header}>
-                <SvgIcon name="fleetronixLogo" width={scale(256)} height={verticalScale(50)} color={COLORS.primary} />
-                <Text style={styles.welcomeTitle}>{t('welcome', 'Welcome')}</Text>
-                <Text style={styles.instructionText}>
-                  {t('please_enter_details', 'Please enter your sign in details.')}
-                </Text>
-              </View>
-
-              {/* Input Section */}
-              <View style={styles.formContainer}>
-                <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-                  <View style={styles.labelContainer}>
-                    <Text style={styles.labelText}>
-                      {t('phone_number_label', 'Phone Number')}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.innerContainer}>
+                <View style={styles.topContent}>
+                  <View style={styles.header}>
+                    <SvgIcon name="fleetronixLogo" width={scale(256)} height={verticalScale(50)} color={COLORS.primary} />
+                    <Text style={styles.welcomeTitle}>{t('welcome', 'Welcome')}</Text>
+                    <Text style={styles.instructionText}>
+                      {t('please_enter_details', 'Please enter your sign in details.')}
                     </Text>
                   </View>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder={t('enter_phone', 'Enter Phone Number')}
-                    placeholderTextColor={COLORS.textColor.color2.two}
-                    keyboardType="phone-pad"
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                  />
-                  <View style={styles.iconContainer}>
-                    <SvgIcon name="phoneIcon" width={20} height={20} color={COLORS.textColor.color2.two} />
+
+                  {/* Input Section */}
+                  <View style={styles.formContainer}>
+                    <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+                      <View style={styles.labelContainer}>
+                        <Text style={styles.labelText}>
+                          {t('phone_number_label', 'Phone Number')}
+                        </Text>
+                      </View>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder={t('enter_phone', 'Enter Phone Number')}
+                        placeholderTextColor={COLORS.textColor.color2.two}
+                        keyboardType="phone-pad"
+                        value={phoneNumber}
+                        onChangeText={(text) => {
+                          const cleaned = text.replace(/[^0-9]/g, '');
+                          if (cleaned.length <= 10) {
+                            setPhoneNumber(cleaned);
+                          }
+                        }}
+                        maxLength={10}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                      />
+                      <View style={styles.iconContainer}>
+                        <SvgIcon name="phoneIcon" width={20} height={20} color={COLORS.textColor.color2.two} />
+                      </View>
+                    </View>
+                    {error.length !== 0 && (
+                      <Text style={styles.errorMessage}>{error}</Text>
+                    )}
                   </View>
                 </View>
-                {error.length !== 0 && (
-                  <Text style={styles.errorMessage}>{error}</Text>
-                )}
-              </View>
 
-              {/* Footer Section */}
-              <View style={styles.footer}>
-                <Text style={styles.disclaimerText}>
-                  {t('disclaimer_text', 'By clicking Next,you agree with our')} {'\n'}
-                  <Text style={styles.boldText}>{t('terms_and_conditions', 'Terms and Conditions')}</Text> {t('and', 'and')}{' '}
-                  <Text style={styles.boldText}>{t('privacy_policy', 'Privacy Policy')}</Text>
-                </Text>
-                <TouchableOpacity
-                  style={[styles.signInButton, isPending && styles.signInButtonDisabled]}
-                  activeOpacity={0.8}
-                  onPress={handleSignIn}
-                  disabled={isPending}
-                >
-                  {isPending ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
+                {/* Footer Section */}
+                <View style={styles.footer}>
+                  <Text style={styles.disclaimerText}>
+                    {t('disclaimer_text', 'By clicking Next,you agree with our')} {'\n'}
+                    <Text style={styles.boldText}>{t('terms_and_conditions', 'Terms and Conditions')}</Text> {t('and', 'and')}{' '}
+                    <Text style={styles.boldText}>{t('privacy_policy', 'Privacy Policy')}</Text>
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.signInButton, isPending && styles.signInButtonDisabled]}
+                    activeOpacity={0.8}
+                    onPress={handleSignIn}
+                    disabled={isPending}
+                  >
+                    {isPending ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
                       <Text style={styles.signInButtonText}>{t('sign_in', 'Sign In')}</Text>
-                  )}
-                </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          </TouchableWithoutFeedback>
+            </TouchableWithoutFeedback>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
       {/* Phone Confirmation Bottom Sheet */}
@@ -169,7 +221,7 @@ const LoginScreen = ({ navigation }: Props) => {
         onBackButtonPress={() => setIsApiErrorVisible(false)}
       >
         <ErrorBottomSheet
-          title={t('network_error', 'Network Error')}
+          title={apiErrorTitle}
           message={apiErrorMessage}
           onClose={() => setIsApiErrorVisible(false)}
         />
@@ -192,12 +244,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   innerContainer: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: scale(24),
     justifyContent: 'space-between',
     paddingTop: verticalScale(60),
     paddingBottom: verticalScale(40),
+  },
+  topContent: {
+    width: '100%',
   },
   header: {
     marginBottom: verticalScale(40),
@@ -217,7 +275,6 @@ const styles = StyleSheet.create({
     marginTop: verticalScale(10),
   },
   formContainer: {
-    flex: 1,
     marginTop: verticalScale(16),
   },
   inputWrapper: {

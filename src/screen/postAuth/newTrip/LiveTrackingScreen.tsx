@@ -30,7 +30,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { notificationService } from '../../../services/NotificationService';
 
 import { RootState } from '../../../redux/store';
-import { setLiveLocation } from '../../../redux/slices/tripSlice';
+import { setLiveLocation, setTripId } from '../../../redux/slices/tripSlice';
 import { scale, verticalScale, moderateScale, SCREEN } from '../../../helpers/dimension';
 import { RootStackParamList } from '../../../navigation/types';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -132,7 +132,13 @@ const LiveTrackingScreen: React.FC = () => {
   const dispatch  = useDispatch();
   const mapRef    = useRef<MapView>(null);
   const tripRedux = useSelector((state: RootState) => state.trip);
-  const tripId    = tripRedux.tripId;
+  const tripId    = tripRedux.tripId || trip?.trip_id || trip?.id;
+
+  useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
 
 

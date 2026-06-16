@@ -23,15 +23,15 @@ import { useAppSelector } from '../../hooks/reduxHooks';
 import { useUpdateDriver } from '../../hooks/useAuth';
 import { ActivityIndicator } from 'react-native';
 import { RootState } from '../../redux/store';
-
 import { useLanguage } from '../../hooks/useLanguage';
+import { Asset } from 'react-native-image-picker';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReadyToDrive'>;
 
 const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
   const { currentLanguage } = useLanguage();
-  const { selectedTrucks, selectedStates, licenseImage, adharImage } = useAppSelector((state) => state.registration);
+  const { selectedTrucks, selectedStates, licenseImage, adharImage, profileImage } = useAppSelector((state) => state.registration);
   const { driverId, userToken } = useAppSelector((state: RootState) => state.auth);
   const [accepted, setAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -72,6 +72,7 @@ const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
 
       if (licenseImage) data.driving_licence = licenseImage;
       if (adharImage) data.aadhar = adharImage;
+      if (profileImage) data.driver_photo = profileImage;
 
       updateDriverMutate({ driverId, token: userToken || '', data });
     } else if (!driverId) {
@@ -154,9 +155,9 @@ const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.mainButton, (!accepted || isPending) && styles.mainButtonDisabled]}
+            style={[styles.mainButton, (!accepted || !profileImage || isPending) && styles.mainButtonDisabled]}
             onPress={handleContinue}
-            disabled={!accepted || isPending}
+            disabled={!accepted || !profileImage || isPending}
           >
             {isPending ? (
               <ActivityIndicator color={COLORS.secondary} />
@@ -171,7 +172,7 @@ const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
           onBackdropPress={() => setShowTerms(false)}
           onBackButtonPress={() => setShowTerms(false)}
         >
-          <View style={styles.bottomSheet} onStartShouldSetResponder={() => true}>
+          <View style={styles.bottomSheet}>
             <View style={styles.handle} />
             <FlatList
               data={TERMS_DATA}
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAF7F7',
     borderTopLeftRadius: moderateScale(30),
     borderTopRightRadius: moderateScale(30),
-    maxHeight: verticalScale(600),
+    maxHeight: '80%',
     paddingHorizontal: scale(24),
     paddingTop: verticalScale(12),
     paddingBottom: verticalScale(30),

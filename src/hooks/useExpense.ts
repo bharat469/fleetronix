@@ -5,7 +5,9 @@ import {
   addExpense, 
   AddExpenseParams,
   fetchExpenseDetails,
-  getExpensePdf
+  getExpensePdf,
+  fetchExpenseActivity,
+  ExpenseActivityParams
 } from '../services/expenseApi';
 
 export const useExpenseDashboard = (params: ExpenseDashboardParams) => {
@@ -44,10 +46,18 @@ export const useAddExpense = (options?: { onSuccess?: (data: any) => void, onErr
     mutationFn: (params: AddExpenseParams) => addExpense(params),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['expenseDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['expenseActivity'] });
       if (options?.onSuccess) options.onSuccess(data);
     },
     onError: (error) => {
       if (options?.onError) options.onError(error);
     },
+  });
+};
+
+export const useExpenseActivity = (params: ExpenseActivityParams) => {
+  return useQuery({
+    queryKey: ['expenseActivity', params.page, params.per_page, params.sort_by, params.month, params.year],
+    queryFn: () => fetchExpenseActivity(params),
   });
 };

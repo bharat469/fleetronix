@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  BackHandler,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { useTrips } from '../../../hooks/useTrips';
@@ -25,8 +26,29 @@ type TabType = 'all' | 'ongoing' | 'assigned' | 'completed';
 
 const AllLoadsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'AllLoads'>>();
 
   const [activeTab, setActiveTab] = useState<TabType>('assigned');
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
+
+  useEffect(() => {
+    const backAction = () => {
+      navigation.navigate('Home');
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [navigation]);
 
   const CATEGORIES: { label: string; value: TabType }[] = [
     { label: 'All Trip', value: 'all' },
@@ -83,7 +105,7 @@ const AllLoadsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
+          onPress={() => navigation.navigate('Home')} 
           style={styles.backBtn}
         >
           <BackArrowIcon />

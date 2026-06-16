@@ -16,15 +16,23 @@ import SvgIcon from '../../../helpers/svgComponents';
 import SlideToAction from '../../../components/SlideToAction';
 import { COLORS } from '../../../helpers/values/colors';
 import { BackArrowIcon } from '../../../assets/svgIcons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
+import { setTripId } from '../../../redux/slices/tripSlice';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Delivery'>;
 
 const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
   const tripRedux = useSelector((state: RootState) => state.trip);
   const { trip } = route.params;
-  const tripId = tripRedux.tripId || trip?.trip_id;
+  const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (tripId && !tripRedux.tripId) {
+      dispatch(setTripId(tripId));
+    }
+  }, [tripId, tripRedux.tripId, dispatch]);
 
 
 
@@ -67,16 +75,16 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.customerCard}>
           <View style={styles.customerHeader}>
             <Image 
-              source={{ uri: trip.image || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+              source={{ uri: trip?.image || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
               style={styles.customerPic} 
             />
             <View style={styles.customerInfo}>
-              <Text style={styles.customerName}>{trip.customer_name || 'Customer'}</Text>
+              <Text style={styles.customerName}>{trip?.customer_name || 'Customer'}</Text>
               <Text style={styles.customerLabel}>Receiver</Text>
             </View>
             <TouchableOpacity 
               style={styles.callBtn}
-              onPress={() => Linking.openURL(`tel:${trip.customer_mobile || '911'}`)}
+              onPress={() => Linking.openURL(`tel:${trip?.customer_mobile || '911'}`)}
             >
               <SvgIcon name="phoneActions" width={20} height={20} color="white" />
             </TouchableOpacity>
@@ -87,11 +95,11 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Load ID</Text>
-              <Text style={styles.detailValue}>{trip.load_id || 'TRP-9921'}</Text>
+              <Text style={styles.detailValue}>{trip?.load_id || 'TRP-9921'}</Text>
             </View>
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Package</Text>
-              <Text style={styles.detailValue}>{trip.truck_type || 'General'}</Text>
+              <Text style={styles.detailValue}>{trip?.truck_type || 'General'}</Text>
             </View>
           </View>
         </View>

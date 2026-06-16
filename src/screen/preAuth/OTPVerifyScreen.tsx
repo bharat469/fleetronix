@@ -25,6 +25,41 @@ import { setTokens } from '../../redux/slices/authSlice';
 import { storage } from '../../helpers/asyncHelper';
 import { getFcmToken, getDeviceId } from '../../helpers/tokenHelper';
 
+const getErrorTitleAndMessage = (err: any, t: any, defaultMsg: string = 'Something went wrong. Please try again.') => {
+  const rawMessage = err.response?.data?.message || err.response?.data?.error || err.message || defaultMsg;
+  let message = rawMessage;
+  let title = t('error', 'Error');
+  
+  if (typeof rawMessage === 'string') {
+    const lowerMessage = rawMessage.toLowerCase();
+    const isInactive = 
+      lowerMessage.includes('inactive') ||
+      lowerMessage.includes('deactivated') ||
+      lowerMessage.includes('not active') ||
+      lowerMessage.includes('not_active') ||
+      lowerMessage.includes('disabled') ||
+      lowerMessage.includes('blocked');
+      
+    if (isInactive) {
+      title = t('account_inactive', 'Account Inactive');
+      if (rawMessage.length < 5 || rawMessage.match(/^\d+$/)) {
+        message = t('account_inactive_message', 'Your account is inactive. Please contact support.');
+      } else {
+        message = rawMessage;
+      }
+    } else if (err.response?.status === 400) {
+      title = t('alert', 'Alert');
+      if (rawMessage === '400' || rawMessage.includes('status code 400')) {
+        message = defaultMsg;
+      }
+    } else if (!err.response) {
+      title = t('network_error', 'Network Error');
+    }
+  }
+  
+  return { title, message };
+};
+
 type Props = NativeStackScreenProps<RootStackParamList, 'OTPVerify'>;
 
 const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -33,6 +68,7 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
   const [currentOtp, setCurrentOtp] = useState('');
   const [timer, setTimer] = useState(30);
   const [isApiErrorVisible, setIsApiErrorVisible] = useState(false);
+  const [apiErrorTitle, setApiErrorTitle] = useState('Error');
   const [apiErrorMessage, setApiErrorMessage] = useState('');
   const dispatch = useDispatch();
 
@@ -64,8 +100,10 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
       console.log('Registration success:', data);
       handleAuthSuccess(data);
     },
-    onError: (err: Error) => {
-      setApiErrorMessage(err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.'));
+    onError: (err: any) => {
+      const { title, message } = getErrorTitleAndMessage(err, t, t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setApiErrorTitle(title);
+      setApiErrorMessage(message);
       setIsApiErrorVisible(true);
     },
   });
@@ -75,8 +113,10 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
       console.log('Login success:', data);
       handleAuthSuccess(data);
     },
-    onError: (err: Error) => {
-      setApiErrorMessage(err.message ?? t('something_went_wrong', 'Something went wrong. Please try again.'));
+    onError: (err: any) => {
+      const { title, message } = getErrorTitleAndMessage(err, t, t('something_went_wrong', 'Something went wrong. Please try again.'));
+      setApiErrorTitle(title);
+      setApiErrorMessage(message);
       setIsApiErrorVisible(true);
     },
   });
@@ -182,7 +222,7 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
                 style={[styles.resendAction, (timer > 0 || isResending) && styles.disabledResend]}
                 onPress={handleResendOTP}
               >
-                {isResending ? t('loading', 'Loading...') : `${t('resend', 'Resend')} (${timer}s)`}
+                {isResending ? t('loading', 'Loading...') : `${t('resend', 'Resend')} (${formatTimer(timer)}s)`}
               </Text>
             </Text>
           </View>
@@ -196,7 +236,7 @@ const OTPVerifyScreen: React.FC<Props> = ({ route, navigation }) => {
         onBackButtonPress={() => setIsApiErrorVisible(false)}
       >
         <ErrorBottomSheet
-          title={t('network_error', 'Network Error')}
+          title={apiErrorTitle}
           message={apiErrorMessage}
           onClose={() => setIsApiErrorVisible(false)}
         />

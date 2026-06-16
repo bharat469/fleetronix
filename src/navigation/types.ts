@@ -9,6 +9,7 @@ export type RootStackParamList = {
   SelectTruck: undefined;
   SelectState: undefined;
   VerifyDocuments: undefined;
+  ProfilePic: undefined;
   ReadyToDrive: undefined;
   CallVerification: undefined;
   Home: undefined;
@@ -21,14 +22,14 @@ export type RootStackParamList = {
       longitude: number;
     };
   };
-  KYC: undefined;
+  KYC: { fromAccount?: boolean } | undefined;
   Status: undefined;
   NewTripLocation: undefined;
   NewTripDate: undefined;
   NewTripPreferences: undefined;
   SearchingTruck: undefined;
   NegotiationZone: undefined;
-  AllLoads: undefined;
+  AllLoads: { initialTab?: 'all' | 'ongoing' | 'assigned' | 'completed' } | undefined;
 
   AvailableJobs: undefined;
   TripDetails: { tripId: string; loadNumber: string; tripData?: Trip };
@@ -43,5 +44,8 @@ export type RootStackParamList = {
   ExpenseDashboard: undefined;
   AddExpense: undefined;
   ExpenseSuccess: { expenseId: string };
+  AllExpenses: undefined;
   TransporterScreen: undefined;
+  Support: undefined;
+  POD: undefined;
 };
