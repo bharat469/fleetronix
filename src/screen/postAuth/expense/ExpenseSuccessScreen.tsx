@@ -18,6 +18,7 @@ import { CloseIcon, ShareIcon, DownloadIcon, ShieldCheckIcon } from '../../../as
 import { useExpenseDetails, useDownloadReceipt } from '../../../hooks/useExpense';
 import { getExpensePdf } from '../../../services/expenseApi';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 import moment from 'moment';
 import BottomSheetComponent from '../../../components/bottomsheet';
 import { useState } from 'react';
@@ -52,20 +53,28 @@ const ExpenseSuccessScreen = () => {
     try {
       // Fetch the pdf downloaded to CacheDir
       const path = await getExpensePdf(expenseId, true);
-      try {
-        const shareOptions = {
-          title: 'Expense Receipt',
-          url: `file://${path}`,
-          type: 'application/pdf',
-          failOnCancel: false,
-        };
-        await Share.open(shareOptions);
-      } catch (shareError) {
-        console.log('Share.open error:', shareError);
+      
+      // Verify that the file exists and is not empty
+      const fileExists = await ReactNativeBlobUtil.fs.exists(path);
+      if (!fileExists) {
+        throw new Error('Receipt file not found.');
       }
-    } catch (error) {
+      
+      const stat = await ReactNativeBlobUtil.fs.stat(path);
+      if (Number(stat.size) === 0) {
+        throw new Error('Receipt file is empty.');
+      }
+
+      const shareOptions = {
+        title: 'Expense Receipt',
+        url: `file://${path}`,
+        type: 'application/pdf',
+        failOnCancel: false,
+      };
+      await Share.open(shareOptions);
+    } catch (error: any) {
       console.log('Share error:', error);
-      Alert.alert('Error', 'Failed to share receipt. Please try again.');
+      Alert.alert('Error', error?.message || 'Failed to share receipt. Please try again.');
     } finally {
       setIsSharing(false);
     }
@@ -109,22 +118,26 @@ const ExpenseSuccessScreen = () => {
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Ref Number</Text>
-                <Text style={styles.detailValue}>{expense?.expense_number || 'N/A'}</Text>
+                <Text style={styles.detailValue}>{expense?.expense_number || expense?.payment_number || 'N/A'}</Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Time</Text>
-                <Text style={styles.detailValue}>{moment(expense?.created_at).format('DD-MM-YYYY, HH:mm:ss') || 'N/A'}</Text>
+                <Text style={styles.detailValue}>
+                  {expense?.created_at ? moment(expense.created_at).format('DD-MM-YYYY, HH:mm:ss') : 'N/A'}
+                </Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Payment Method</Text>
-                <Text style={styles.detailValue}>{expense?.mode_of_payment || 'N/A'}</Text>
+                <Text style={styles.detailValue}>{expense?.mode_of_payment || expense?.payment_mode || 'N/A'}</Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Expense Category</Text>
-                <Text style={styles.detailValue}>{expense?.category || 'N/A'}</Text>
+                <Text style={styles.detailValue}>
+                  {expense?.category || expense?.payment_head || expense?.note || 'N/A'}
+                </Text>
               </View>
 
               <View style={styles.divider} />

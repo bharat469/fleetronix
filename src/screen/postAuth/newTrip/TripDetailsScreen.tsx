@@ -9,20 +9,29 @@ import {
   Image,
   Dimensions,
   BackHandler,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { scale, verticalScale, moderateScale } from '../../../helpers/dimension';
 import { COLORS } from '../../../helpers/values/colors';
-import { BackArrowIcon, PhoneIcon, LocationIcon } from '../../../assets/svgIcons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { BackArrowIcon, PhoneIcon } from '../../../assets/svgIcons';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import { useDriverInfo } from '../../../hooks/useAuth';
+import { resolveImageUrl } from '../../../helpers/urlHelper';
 import { RootStackParamList } from '../../../navigation/types';
 import { useTripBreif, useTripDetails } from '../../../hooks/useTripDetails';
 import { setTripId } from '../../../redux/slices/tripSlice';
 import Config from 'react-native-config';
+import { useMutation } from '@tanstack/react-query';
+import { sendTripOtp } from '../../../services/tripApi';
+import { LocationService } from '../../../services/LocationService';
+import TripCard from '../../../components/TripCard';
+
 
 /** Converts ISO timestamp → 'Apr 20, 2026 · 10:04 AM' */
 const formatDate = (iso?: string | null): string => {
@@ -40,13 +49,52 @@ const formatDate = (iso?: string | null): string => {
 const TripDetailsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const dispatch = useDispatch();
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse } = useDriverInfo(driverId || '', userToken || '', !!driverId && !!userToken);
+  const driver = driverResponse?.data;
   const route = useRoute<RouteProp<RootStackParamList, 'TripDetails'>>();
-  const { tripId, loadNumber, } = route.params || {};
+  const { tripId, loadNumber, tripData } = route.params || {};
   const mapRef = React.useRef<MapView>(null);
+  const [routeMetrics, setRouteMetrics] = useState<{ distance: string; duration: string } | null>(null);
+  // Road-following coords from Directions API; falls back to straight line
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
   // Fetch live trip details
   const { data: apiData } = useTripDetails(tripId);
   const { data: apiBriefData } = useTripBreif(tripId);
+  console.log(apiData)
+
+  // OMG! TanStack Query mutation to send our super cool OTP! 🚀🔥
+  // We want our driver to start the trip with style and ease! 😎
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => {
+      console.log('🛸 Sending OTP for starting the trip, trip ID is:', tripId);
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      try {
+        const position = await LocationService.getCurrentLocation();
+        if (position?.coords) {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        }
+      } catch (err: any) {
+        console.warn('[TripDetailsScreen] Could not retrieve GPS location for OTP:', err.message);
+      }
+      return sendTripOtp({
+        tripId: tripId || '',
+        codeType: 'pickup',
+        latitude,
+        longitude,
+      });
+    },
+    onSuccess: (data) => {
+      console.log('🎉 WHOOO! OTP sent successfully on Start Trip click!', data);
+    },
+    onError: (err) => {
+      console.error('🙀 Oh no! Failed to send OTP on start trip click:', err.message);
+    },
+  });
+
 
   // Console log the result
   useEffect(() => {
@@ -72,6 +120,14 @@ const TripDetailsScreen = () => {
 
   const data = { ...apiData, ...apiBriefData }
 
+  const isDeliveryVerified =
+    data?.delivery_code_verified === true ||
+    data?.delivery_code_verified === 1 ||
+    data?.delivery_code_verified === 'true' ||
+    (tripData && (tripData.delivery_code_verified === true || (tripData.delivery_code_verified as any) === 1 || (tripData.delivery_code_verified as any) === 'true'));
+
+
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,50 +143,14 @@ const TripDetailsScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Top Info Card */}
-        <View style={styles.topCard}>
-          <Text style={styles.loadIdLabel}>Load Id - #{loadNumber}</Text>
-
-          <View style={styles.cardMain}>
-            <View style={styles.leftColumn}>
-              <View style={styles.profileWrapper}>
-                <Image
-                  source={{ uri: data?.driver_photo_url || 'https://randomuser.me/api/portraits/men/32.jpg' }}
-                  style={styles.profilePic}
-                />
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.checkIcon}>✓</Text>
-                </View>
-              </View>
-              <Text style={styles.driverNameLarge}>{data?.driver_name?.split(' ')[0] || 'N/A'}</Text>
-            </View>
-
-            <View style={styles.rightColumn}>
-              <MetricRow label="Task" value={data?.task || 'General Delivery'} />
-              <MetricRow label="Assigned At" value={formatDate(data?.assigned_at)} />
-              <MetricRow label="Current Status" value={data?.status} />
-              <MetricRow label="Trip Estimate" value={`Rs ${data?.trip_cost}`} />
-            </View>
-          </View>
-
-          <View style={styles.cardDivider} />
-
-          <View style={styles.cardBottom}>
-            <TouchableOpacity style={styles.contactActionBtn}>
-              <PhoneIcon color="#CA2027" width={18} height={18} />
-              <Text style={styles.contactActionText}>Get in Contact</Text>
-            </TouchableOpacity>
-            <TouchableOpacity disabled={true} style={{ opacity: 0.5 }}>
-              <Text style={[styles.declineText, { color: '#858080' }]}>Decline</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TripCard trip={data as any} />
 
         {/* Truck Info Section (Red Box) */}
         <View style={styles.truckInfoBox}>
           <Text style={styles.boxTitle}>Trip Info</Text>
           <TableInfoRow label="Vehicle Number" value={data?.vehicle_number || 'N/A'} />
           <TableInfoRow label="Owner Name" value={data?.owner_name || 'Fleetronix'} />
-          <TableInfoRow label="Registering authority" value={data?.registering_authority || 'N/A'} />
+          <TableInfoRow label="Registering authority" value={data?.registration_state_name || 'N/A'} />
           <TableInfoRow label="Fuel Type" value={data?.fuel_type || 'N/A'} />
           <TableInfoRow label="Emission Norms" value={data?.emission_norm || 'N/A'} />
           <TableInfoRow label="Vehicle Age" value={data?.vehicle_age || 'N/A'} />
@@ -147,7 +167,6 @@ const TripDetailsScreen = () => {
             provider={PROVIDER_GOOGLE}
             style={styles.map}
             initialRegion={{
-              // Centre between pickup and destination
               latitude: ((parseFloat(data?.source_latitude) || 25.7919) + (parseFloat(data?.destination_latitude) || 23.4559)) / 2,
               longitude: ((parseFloat(data?.source_longitude) || 73.1721) + (parseFloat(data?.destination_longitude) || 85.2557)) / 2,
               latitudeDelta: Math.abs((parseFloat(data?.source_latitude) || 25.7919) - (parseFloat(data?.destination_latitude) || 23.4559)) * 1.5 + 0.5,
@@ -155,7 +174,7 @@ const TripDetailsScreen = () => {
             }}
             scrollEnabled={false}
           >
-            {/* Google Directions route line */}
+            {/* Road-following route via Directions API (best effort) */}
             {data?.source_latitude && data?.destination_latitude && (
               <MapViewDirections
                 origin={{
@@ -167,19 +186,107 @@ const TripDetailsScreen = () => {
                   longitude: parseFloat(data.destination_longitude),
                 }}
                 apikey={Config.GOOGLE_MAPS_API_KEY ?? ''}
-                strokeWidth={4}
-                strokeColor="#CA2027"
+                strokeWidth={0}       /* hidden — Polyline below handles drawing */
+                strokeColor="transparent"
+                lineDashPattern={[]}
                 onReady={(result) => {
-                  // Fit map to show full route
+                  setRouteCoords(result.coordinates);
+                  setRouteMetrics({
+                    distance: `${result.distance.toFixed(1)} km`,
+                    duration: `${Math.ceil(result.duration)} mins`,
+                  });
                   mapRef.current?.fitToCoordinates(result.coordinates, {
-                    edgePadding: { top: 20, right: 20, bottom: 20, left: 20 },
+                    edgePadding: { top: 30, right: 30, bottom: 30, left: 30 },
                     animated: false,
                   });
                 }}
+                onError={(err) => console.warn('[TripDetails] Directions API error:', err)}
               />
             )}
 
-            {/* Pickup marker */}
+            {/* Always-visible connector — road route when available, straight line as fallback */}
+            {data?.source_latitude && data?.destination_latitude && (
+              <>
+                {/* Glow Underlay */}
+                <Polyline
+                  coordinates={
+                    routeCoords.length >= 2
+                      ? routeCoords
+                      : [
+                        { latitude: parseFloat(data.source_latitude), longitude: parseFloat(data.source_longitude) },
+                        { latitude: parseFloat(data.destination_latitude), longitude: parseFloat(data.destination_longitude) },
+                      ]
+                  }
+                  strokeColor="rgba(33, 150, 243, 0.25)"
+                  strokeWidth={10}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+                {/* Core route */}
+                <Polyline
+                  coordinates={
+                    routeCoords.length >= 2
+                      ? routeCoords
+                      : [
+                        { latitude: parseFloat(data.source_latitude), longitude: parseFloat(data.source_longitude) },
+                        { latitude: parseFloat(data.destination_latitude), longitude: parseFloat(data.destination_longitude) },
+                      ]
+                  }
+                  strokeColor="#2196F3"
+                  strokeWidth={6}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              </>
+            )}
+
+            {/* Dynamic ETA Badges on the road route */}
+            {routeCoords.length >= 2 && (
+              <>
+                {/* Primary ETA Badge (Middle) */}
+                {routeCoords[Math.floor(routeCoords.length / 2)] && (
+                  <Marker
+                    coordinate={routeCoords[Math.floor(routeCoords.length / 2)]}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    tracksViewChanges={false}
+                  >
+                    <View style={styles.etaRouteBadge}>
+                      <Text style={styles.etaRouteText}>
+                        {routeMetrics?.duration ? `${routeMetrics.duration} • Fastest` : 'Fastest'}
+                      </Text>
+                    </View>
+                  </Marker>
+                )}
+
+                {/* Alternate ETA Badge 1 (1/3 of route) */}
+                {routeCoords[Math.floor(routeCoords.length / 3)] && (
+                  <Marker
+                    coordinate={routeCoords[Math.floor(routeCoords.length / 3)]}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    tracksViewChanges={false}
+                  >
+                    <View style={[styles.etaRouteBadge, styles.etaAlternateBadge]}>
+                      <Text style={[styles.etaRouteText, styles.etaAlternateText]}>+3 min</Text>
+                    </View>
+                  </Marker>
+                )}
+
+                {/* Alternate ETA Badge 2 (2/3 of route) */}
+                {routeCoords[Math.floor((routeCoords.length * 2) / 3)] && (
+                  <Marker
+                    coordinate={routeCoords[Math.floor((routeCoords.length * 2) / 3)]}
+                    anchor={{ x: 0.5, y: 0.5 }}
+                    tracksViewChanges={false}
+                  >
+                    <View style={[styles.etaRouteBadge, styles.etaAlternateBadge]}>
+                      <Text style={[styles.etaRouteText, styles.etaAlternateText]}>+5 min</Text>
+                    </View>
+                  </Marker>
+                )}
+              </>
+            )}
+
+            {/* ── Pickup marker (green) ── */}
             {data?.source_latitude && (
               <Marker
                 coordinate={{
@@ -188,11 +295,15 @@ const TripDetailsScreen = () => {
                 }}
                 title="Pickup"
                 description={data?.source_address || data?.source_city}
-                pinColor="#4CAF50"
-              />
+                anchor={{ x: 0.5, y: 1 }}
+              >
+                <View style={styles.pickupPin}>
+                  <View style={styles.pickupPinInner} />
+                </View>
+              </Marker>
             )}
 
-            {/* Destination marker */}
+            {/* ── Destination marker (red) ── */}
             {data?.destination_latitude && (
               <Marker
                 coordinate={{
@@ -201,11 +312,31 @@ const TripDetailsScreen = () => {
                 }}
                 title="Destination"
                 description={data?.destination_address || data?.destination_city}
+                anchor={{ x: 0.5, y: 1 }}
               >
-                <LocationIcon color="#CA2027" width={30} height={30} />
+                <View style={styles.destPin}>
+                  <View style={styles.destPinInner} />
+                </View>
               </Marker>
             )}
           </MapView>
+
+          {/* ── Distance / ETA badge ── */}
+          {routeMetrics && (
+            <View style={styles.routeBadge}>
+              <View style={styles.routeBadgeItem}>
+                <Text style={styles.routeBadgeIcon}>📍</Text>
+                <Text style={styles.routeBadgeValue}>{routeMetrics.distance}</Text>
+                <Text style={styles.routeBadgeLabel}>Distance</Text>
+              </View>
+              <View style={styles.routeBadgeDivider} />
+              <View style={styles.routeBadgeItem}>
+                <Text style={styles.routeBadgeIcon}>⏱</Text>
+                <Text style={styles.routeBadgeValue}>{routeMetrics.duration}</Text>
+                <Text style={styles.routeBadgeLabel}>Est. Time</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Route Section */}
@@ -227,20 +358,7 @@ const TripDetailsScreen = () => {
           />
         </View>
 
-        {/* Basis Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Financials</Text>
-        </View>
-        <View style={styles.basisCard}>
-          <BasisRow label="Total trip estimate" value={`Rs ${data?.total_trip_cost || data?.estimate || '0'}`} />
-          <BasisHeader title="Location Details" />
-          <BasisRow label="From" value={data?.trip_direction?.starting_point || data?.pickup} />
-          <BasisRow label="To" value={data?.trip_direction?.ending_point || data?.drop} />
 
-          <BasisHeader title="Schedule" />
-          <BasisRow label="Assigned At" value={formatDate(data?.assigned_at)} />
-          <BasisRow label="Est. Delivery" value={formatDate(data?.delivery_time ?? data?.estimated_delivery)} />
-        </View>
 
 
 
@@ -250,11 +368,47 @@ const TripDetailsScreen = () => {
           <TouchableOpacity
             style={styles.startBtn}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('StartTrip', { trip: data })}
+            onPress={() => {
+              if (isDeliveryVerified && data?.status !== 'completed') {
+                console.log('🏁 Delivery is verified! Navigating directly to ConfirmDelivery.');
+                navigation.navigate('ConfirmDelivery', { trip: { ...tripData, ...data } });
+                return;
+              }
+
+              const isPickupVerified =
+                data?.pickup_code_verified === true ||
+                data?.pickup_code_verified === 1 ||
+                data?.pickup_code_verified === 'true' ||
+                data?.status === 'ongoing' ||
+                data?.status === 'started' ||
+                data?.status === 'in_progress';
+
+              if (isPickupVerified) {
+                console.log('🚚 Pickup is verified! Navigating directly to LiveTracking.');
+                navigation.navigate('LiveTracking', { trip: { ...tripData, ...data } });
+                return;
+              }
+
+              // Only trigger OTP send if the trip has NOT started yet!
+              console.log('🚀 Whoosh! Sending OTP now!');
+              sendOtpMutation.mutate();
+              navigation.navigate('StartTrip', { trip: data });
+            }}
           >
-            <Text style={styles.startBtnText}>{(data?.pickup_code_verified === true || data?.pickup_code_verified === 1 || data?.pickup_code_verified === 'true' || data?.status === 'ongoing') ? 'Continue' : 'Start Trip'}</Text>
+            <Text style={styles.startBtnText}>
+              {(data?.pickup_code_verified === true ||
+                data?.pickup_code_verified === 1 ||
+                data?.pickup_code_verified === 'true' ||
+                data?.status === 'ongoing' ||
+                data?.status === 'started' ||
+                data?.status === 'in_progress' ||
+                isDeliveryVerified)
+                ? 'Continue'
+                : 'Start Trip'}
+            </Text>
           </TouchableOpacity>
         )}
+
 
       </ScrollView>
     </SafeAreaView>
@@ -492,13 +646,99 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   mapContainer: {
-    height: verticalScale(220),
+    height: verticalScale(250),
     marginHorizontal: scale(20),
     borderRadius: scale(15),
     overflow: 'hidden',
+    position: 'relative',
   },
   map: {
     ...StyleSheet.absoluteFill,
+  },
+  // ── Custom map markers ──
+  pickupPin: {
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(10),
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  pickupPinInner: {
+    width: scale(6),
+    height: scale(6),
+    borderRadius: scale(3),
+    backgroundColor: 'white',
+  },
+  destPin: {
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(10),
+    backgroundColor: '#CA2027',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  destPinInner: {
+    width: scale(6),
+    height: scale(6),
+    borderRadius: scale(3),
+    backgroundColor: 'white',
+  },
+  // ── Route info badge ──
+  routeBadge: {
+    position: 'absolute',
+    bottom: scale(10),
+    alignSelf: 'center',
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderRadius: scale(20),
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    gap: scale(12),
+    alignItems: 'center',
+  },
+  routeBadgeItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  routeBadgeIcon: {
+    fontSize: moderateScale(14),
+  },
+  routeBadgeValue: {
+    fontSize: moderateScale(13),
+    fontWeight: '800',
+    color: '#1A1A2E',
+  },
+  routeBadgeLabel: {
+    fontSize: moderateScale(9),
+    color: '#999',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  routeBadgeDivider: {
+    width: 1,
+    height: verticalScale(28),
+    backgroundColor: '#F0F0F0',
   },
   routeCard: {
     marginHorizontal: scale(20),
@@ -652,6 +892,33 @@ const styles = StyleSheet.create({
   //   fontSize: moderateScale(16),
   //   fontWeight: '600',
   // },
+  etaRouteBadge: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(5),
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etaRouteText: {
+    fontSize: moderateScale(10),
+    fontWeight: 'bold',
+    color: '#1A202C',
+  },
+  etaAlternateBadge: {
+    backgroundColor: '#4A5568',
+    borderColor: '#4A5568',
+  },
+  etaAlternateText: {
+    color: '#FFFFFF',
+  },
 });
 
 

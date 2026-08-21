@@ -27,6 +27,7 @@ const queryClient = new QueryClient({
 // Initialize i18n
 import './src/i18n';
 import AlertPopup from './src/components/common/AlertPopup';
+import GlobalLocationTracker from './src/components/GlobalLocationTracker';
 import { notificationService } from './src/services/NotificationService';
 import { useEffect } from 'react';
 
@@ -57,6 +58,7 @@ function App() {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
             <RootNavigator />
             <AlertPopup />
+            <GlobalLocationTracker />
           </NavigationContainer>
         </SafeAreaProvider>
       </QueryClientProvider>

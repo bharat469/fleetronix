@@ -8,6 +8,7 @@ import {
   StatusBar,
   Dimensions,
   Animated,
+  Linking,
 } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -165,14 +166,14 @@ const AvailableJobsScreen = () => {
           <View style={styles.cardMain}>
             <View style={styles.picContainer}>
               <Image
-                source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }}
+                source={{ uri: resolveImageUrl(driver?.photo_path) }}
                 style={styles.cardProfilePic}
               />
               <View style={styles.verifiedBadge}>
                 <Text style={{ fontSize: 8, color: 'white' }}>✓</Text>
               </View>
             </View>
-            <Text style={styles.driverName}>{'Name'}</Text>
+            <Text style={styles.driverName}>{driver?.full_name || driver?.first_name || 'Driver'}</Text>
           </View>
 
           <View style={styles.cardDetails}>
@@ -198,7 +199,14 @@ const AvailableJobsScreen = () => {
             />
           </View>
         ) : (
-          <TouchableOpacity style={styles.contactBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.contactBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              const phone = driver?.phone_number || '';
+              if (phone) Linking.openURL(`tel:${phone}`);
+            }}
+          >
             <PhoneIcon />
             <Text style={styles.contactText}>Get in Contact</Text>
           </TouchableOpacity>

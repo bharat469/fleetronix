@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,6 +22,8 @@ import { postFeedback } from '../../../services/tripApi';
 import { resetTrip, setTripId } from '../../../redux/slices/tripSlice';
 import { ActivityIndicator, Alert } from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
+import { useDriverInfo } from '../../../hooks/useAuth';
+import { resolveImageUrl } from '../../../helpers/urlHelper';
 
 const RatingScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -32,11 +35,36 @@ const RatingScreen = () => {
   const { trip } = route.params;
   const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
 
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse } = useDriverInfo(driverId || '', userToken || '', !!driverId && !!userToken);
+  const driver = driverResponse?.data;
+
+  const driverName  = (driver?.full_name || driver?.first_name || trip?.driver_name) ?? tripRedux.driverName ?? (tripRedux.tripData as any)?.driver_name ?? 'Driver';
+  const driverPhoto = (resolveImageUrl(driver?.photo_path) || trip?.driver_photo_url) ?? tripRedux.driverPhoto ?? (tripRedux.tripData as any)?.driver_photo_url
+    ?? 'https://randomuser.me/api/portraits/men/32.jpg';
+
   useEffect(() => {
     if (tripId && !tripRedux.tripId) {
       dispatch(setTripId(tripId));
     }
   }, [tripId, tripRedux.tripId, dispatch]);
+
+  const handleBack = () => {
+    dispatch(resetTrip());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
+  };
+
+  useEffect(() => {
+    const backAction = () => {
+      handleBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation, trip, tripRedux, tripId]);
 
 
 
@@ -74,7 +102,7 @@ const RatingScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <BackArrowIcon />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Rating</Text>
@@ -84,11 +112,11 @@ const RatingScreen = () => {
         <View style={styles.feedbackCard}>
           <View style={styles.profileSection}>
             <Image 
-              source={{ uri: trip?.driver_photo_url || trip?.image || 'https://randomuser.me/api/portraits/men/1.jpg' }} 
+              source={{ uri: driverPhoto }} 
               style={styles.profilePic} 
             />
-            <Text style={styles.userName}>{trip?.driver_name || 'Driver'}</Text>
-            <Text style={styles.userTier}>2nd Tier</Text>
+            <Text style={styles.userName}>{driverName}</Text>
+            <Text style={styles.userTier}>Driver</Text>
           </View>
 
           <Text style={styles.question}>How is your trip?</Text>

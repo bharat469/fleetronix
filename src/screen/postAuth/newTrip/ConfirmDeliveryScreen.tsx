@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -45,6 +46,51 @@ const ConfirmDeliveryScreen = () => {
       dispatch(setTripId(tripId));
     }
   }, [tripId, tripRedux.tripId, dispatch]);
+
+  React.useEffect(() => {
+    const backAction = () => {
+      const isDeliveryVerified =
+        trip?.delivery_code_verified === true ||
+        trip?.delivery_code_verified === 1 ||
+        trip?.delivery_code_verified === 'true' ||
+        tripRedux?.lifecycle === 'delivered';
+
+      if (isDeliveryVerified) {
+        navigation.navigate('TripDetails', {
+          tripId: tripId || '',
+          loadNumber: trip?.load_number || tripRedux.loadNumber || '',
+          tripData: { ...tripRedux.tripData, ...trip } as any,
+        });
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [navigation, trip, tripRedux, tripId]);
+
+  const handleBack = () => {
+    const isDeliveryVerified =
+      trip?.delivery_code_verified === true ||
+      trip?.delivery_code_verified === 1 ||
+      trip?.delivery_code_verified === 'true' ||
+      tripRedux?.lifecycle === 'delivered';
+
+    if (isDeliveryVerified) {
+      navigation.navigate('TripDetails', {
+        tripId: tripId || '',
+        loadNumber: trip?.load_number || tripRedux.loadNumber || '',
+        tripData: { ...tripRedux.tripData, ...trip } as any,
+      });
+    } else {
+      navigation.goBack();
+    }
+  };
 
 
 
@@ -140,7 +186,7 @@ const ConfirmDeliveryScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <BackArrowIcon />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Confirm Delivery</Text>

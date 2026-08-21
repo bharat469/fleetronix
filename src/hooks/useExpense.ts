@@ -24,6 +24,8 @@ export const useExpenseDetails = (id: string) => {
     queryKey: ['expenseDetails', id],
     queryFn: () => fetchExpenseDetails(id),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
   });
 };
 
@@ -59,5 +61,7 @@ export const useExpenseActivity = (params: ExpenseActivityParams) => {
   return useQuery({
     queryKey: ['expenseActivity', params.page, params.per_page, params.sort_by, params.month, params.year],
     queryFn: () => fetchExpenseActivity(params),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
   });
 };

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ViewStyle } from 'react-native';
 import { scale, verticalScale, moderateScale } from '../../helpers/dimension';
 import { COLORS } from '../../helpers/values/colors';
 import { EditPenIcon } from '../../assets/svgIcons';
 import { resolveImageUrl } from '../../helpers/urlHelper';
+
+const DEFAULT_PROFILE_PIC = 'https://randomuser.me/api/portraits/men/32.jpg';
 
 interface DriverProfileHeaderProps {
   driver: any;
@@ -24,16 +26,32 @@ const DriverProfileHeader = ({
 }: DriverProfileHeaderProps) => {
   const scaledSize = scale(imageSize);
   const borderRadius = scaledSize / 2;
+  const [imageError, setImageError] = useState(false);
+
+  // Reset error state when photo path changes (e.g., after upload)
+  React.useEffect(() => {
+    setImageError(false);
+  }, [driver?.photo_path]);
+
+  const resolvedUrl = resolveImageUrl(driver?.photo_path);
+  console.log('[DriverProfileHeader] 🔍 driver.photo_path:', driver?.photo_path, '→ resolved:', resolvedUrl);
+  const imageSource = imageError
+    ? { uri: DEFAULT_PROFILE_PIC }
+    : { uri: resolvedUrl };
 
   return (
     <View style={[styles.userInfoSection, containerStyle]}>
       <View style={styles.profilePicWrapper}>
         <Image
-          source={{ uri: resolveImageUrl(driver?.photo_path) }}
+          source={imageSource}
           style={[
             styles.profilePic,
             { width: scaledSize, height: scaledSize, borderRadius }
           ]}
+          onError={(e) => {
+            console.warn('[DriverProfileHeader] Image load failed:', resolvedUrl, e.nativeEvent.error);
+            setImageError(true);
+          }}
         />
         {isUpdating && (
           <View style={[styles.loadingOverlay, { borderRadius }]}>

@@ -38,11 +38,14 @@ import { ActivityIndicator, PermissionsAndroid, Platform, Alert } from 'react-na
 import Geolocation from 'react-native-geolocation-service';
 import { useReverseGeocode } from '../../hooks/useGeocoding';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLanguage } from '../../hooks/useLanguage';
+import { getFontFamily } from '../../helpers/fonts';
 
 
 
 const HomeScreen = () => {
   const { t } = useTranslation();
+  const { currentLanguage, changeLanguage } = useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
 
@@ -62,12 +65,31 @@ const HomeScreen = () => {
 
   const driverData = driverResponse?.data;
   const [isEnabled, setIsEnabled] = useState(false);
+  const [hasSyncedLanguage, setHasSyncedLanguage] = useState(false);
 
   useEffect(() => {
     if (driverData) {
       setIsEnabled(driverData.is_active);
+      
+      // Sync starting language from dashboard API (language_preference key) once on mount
+      if (driverData.language_preference && !hasSyncedLanguage) {
+        const codeMap: Record<string, string> = {
+          'english': 'en',
+          'hindi': 'hi',
+          'telugu': 'te',
+          'kannada': 'kn',
+          'bengali': 'bn',
+          'marathi': 'mr'
+        };
+        const backendLangCode = codeMap[driverData.language_preference.toLowerCase()];
+        if (backendLangCode && backendLangCode !== currentLanguage) {
+          console.log(`[HomeScreen] 🌐 Syncing language to backend preference: ${backendLangCode}`);
+          changeLanguage(backendLangCode);
+        }
+        setHasSyncedLanguage(true);
+      }
     }
-  }, [driverData]);
+  }, [driverData, currentLanguage, hasSyncedLanguage]);
 
   const { mutate: updateProfile } = useUpdateDriver({
     onSuccess: () => {
@@ -203,6 +225,22 @@ const HomeScreen = () => {
                       {t('driver_id')}: <Text style={styles.statValue}>{driverId || '---'}</Text>
                     </Text>
                   </View>
+                  
+                  {driverData?.driver_source === 'self' && (
+                    <TouchableOpacity
+                      style={styles.earningsCard}
+                      activeOpacity={0.85}
+                      onPress={() => navigation.navigate('CompletedTrips')}
+                    >
+                      <View style={styles.walletIconContainer}>
+                        <MoneyBagIcon color="#00C853" width={scale(18)} height={scale(18)} />
+                      </View>
+                      <View style={styles.earningsTextContainer}>
+                        <Text style={styles.earningsLabel}>{t('total_earnings', 'Total Earnings')}</Text>
+                        <Text style={styles.earningsValue}>₹{driverData?.total_earnings || '0'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </View>
@@ -410,7 +448,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#CC2B2B',
     borderRadius: 3,
   },
+  earningsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: scale(20),
+    borderWidth: 1.5,
+    borderColor: '#00C853',
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    marginTop: verticalScale(10),
+    alignSelf: 'flex-start',
+    minWidth: scale(160),
+  },
+  walletIconContainer: {
+    width: scale(32),
+    height: scale(32),
+    borderRadius: scale(10),
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(10),
+  },
+  earningsTextContainer: {
+    flexDirection: 'column',
+  },
+  earningsLabel: {
+    fontSize: moderateScale(10),
+    color: '#00C853',
+    fontFamily: getFontFamily('ApercuPro', 'Medium'),
+    marginBottom: verticalScale(1),
+  },
+  earningsValue: {
+    fontSize: moderateScale(16),
+    color: '#111',
+    fontFamily: getFontFamily('ApercuPro', 'Bold'),
+  },
 });
-
 
 export default HomeScreen;

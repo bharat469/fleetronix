@@ -2,7 +2,7 @@ import { Trip } from '../types/trip';
 
 export type RootStackParamList = {
   Onboarding: undefined;
-  LanguageSelection: undefined;
+  LanguageSelection: { fromProfile?: boolean } | undefined;
   Login: undefined;
   OTPVerify: { phoneNumber: string; purpose: string };
   LocationEnable: undefined;
@@ -24,19 +24,21 @@ export type RootStackParamList = {
   };
   KYC: { fromAccount?: boolean } | undefined;
   Status: undefined;
+  Preferences: undefined;
   NewTripLocation: undefined;
   NewTripDate: undefined;
   NewTripPreferences: undefined;
   SearchingTruck: undefined;
   NegotiationZone: undefined;
   AllLoads: { initialTab?: 'all' | 'ongoing' | 'assigned' | 'completed' } | undefined;
+  CompletedTrips: undefined;
 
   AvailableJobs: undefined;
   TripDetails: { tripId: string; loadNumber: string; tripData?: Trip };
   LiveTracking: { trip: any };
   StartTrip: { trip: any };
-  VerifyDeliveryOtp: { trip: any };
   Delivery: { trip: any };
+  VerifyDeliveryOtp: { trip: any };
   ConfirmDelivery: { trip: any };
   Rating: { trip: any };
   Congratulations: { trip: any };

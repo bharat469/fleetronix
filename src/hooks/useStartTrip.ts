@@ -55,7 +55,7 @@ const getCurrentCoords = (): Promise<{ latitude: number; longitude: number }> =>
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export const useStartTrip = () => {
+export const useStartTrip = (trip?: any) => {
   const dispatch   = useDispatch();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -68,9 +68,28 @@ export const useStartTrip = () => {
       dispatch(setLifecycle('starting'));
     },
     onSuccess: (data, variables) => {
-      if (data?.message) dispatch(setActiveTripData(data.message));
+      if (data?.message && typeof data.message === 'object') {
+        dispatch(setActiveTripData(data.message));
+      } else if (data?.data && typeof data.data === 'object') {
+        dispatch(setActiveTripData(data.data));
+      } else if (variables.trip && typeof variables.trip === 'object') {
+        dispatch(setActiveTripData(variables.trip));
+      }
+
       dispatch(setLifecycle('started'));
-      navigation.navigate('LiveTracking', { trip: variables.trip || data?.message || { id: variables.tripId } });
+
+      let finalTrip = variables.trip;
+      if (!finalTrip && data?.message && typeof data.message === 'object') {
+        finalTrip = data.message;
+      }
+      if (!finalTrip && data?.data && typeof data.data === 'object') {
+        finalTrip = data.data;
+      }
+      if (!finalTrip) {
+        finalTrip = { id: variables.tripId, trip_id: variables.tripId };
+      }
+
+      navigation.navigate('LiveTracking', { trip: finalTrip });
     },
     onError: (error: Error) => {
       console.error('[useStartTrip] startTrip failed:', error.message);
@@ -86,12 +105,19 @@ export const useStartTrip = () => {
     onMutate: () => {
       dispatch(setLifecycle('otp_pending'));
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (data, variables) => {
       dispatch(setOtpVerified());
 
       // Get GPS position before starting trip (required by API)
       const coords = await getCurrentCoords();
-      startTripMutation.mutate({ tripId: variables.tripId, coords });
+      
+      const resolvedTrip = trip ?? data?.message ?? data?.data ?? data;
+
+      startTripMutation.mutate({
+        tripId: variables.tripId,
+        coords,
+        trip: (resolvedTrip && typeof resolvedTrip === 'object') ? resolvedTrip : undefined
+      });
     },
     onError: (error: Error) => {
       const msg = error.message ?? 'Invalid OTP. Please try again.';

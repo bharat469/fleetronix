@@ -195,52 +195,6 @@ const NotificationsScreen = () => {
               </View>
             )}
           </View>
-
-          {/* Critical Action Section (Dynamic based on driver profile KYC status) */}
-          {driver && driver.kyc_status && (
-            <View style={styles.criticalSection}>
-              {driver.kyc_status !== 'verified' && driver.kyc_status !== 'approved' && (
-                <Text style={styles.criticalHeading}>{t('critical_action', 'Critical action')}</Text>
-              )}
-              
-              {(driver.kyc_status === 'verified' || driver.kyc_status === 'approved') && (
-                <View style={styles.greenCard}>
-                  <View style={styles.greenIconCircle}>
-                    <Text style={styles.emojiText}>✌️</Text>
-                  </View>
-                  <Text style={styles.greenCardText}>
-                    {t('kyc_verified_successfully', 'KYC documents verified successfully')}
-                  </Text>
-                </View>
-              )}
-
-              {driver.kyc_status === 'rejected' && (
-                <>
-                  <View style={styles.greenCard}>
-                    <View style={styles.greenIconCircle}>
-                      <Text style={styles.emojiText}>✌️</Text>
-                    </View>
-                    <Text style={styles.greenCardText}>
-                      {t('aadhar_verified', 'Aadhaar documents verified')}
-                    </Text>
-                  </View>
-                  <View style={styles.redCard}>
-                    <Text style={styles.redCardText}>
-                      {driver.kyc_remarks || t('pan_not_verified_mismatch', 'PAN not verified due to mismatch of address proof.')}
-                    </Text>
-                  </View>
-                </>
-              )}
-
-              {driver.kyc_status === 'pending' && (
-                <View style={[styles.redCard, { backgroundColor: '#FFF9C4', borderColor: '#FBC02D', borderWidth: 1 }]}>
-                  <Text style={[styles.redCardText, { color: '#F57F17' }]}>
-                    {driver.kyc_remarks || t('kyc_pending_approval', 'KYC verification is pending approval.')}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -390,52 +344,6 @@ const styles = StyleSheet.create({
     fontFamily: getFontFamily('ApercuPro', 'Regular'),
     color: '#9CA3AF',
     marginTop: scale(2),
-  },
-  criticalSection: {
-    paddingHorizontal: scale(20),
-    marginTop: verticalScale(25),
-  },
-  criticalHeading: {
-    fontSize: moderateScale(16),
-    fontFamily: getFontFamily('ApercuPro', 'Bold'),
-    color: '#1F2937',
-    marginBottom: verticalScale(15),
-  },
-  greenCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    borderRadius: scale(16),
-    padding: scale(12),
-    marginBottom: verticalScale(12),
-  },
-  greenIconCircle: {
-    width: scale(36),
-    height: scale(36),
-    borderRadius: scale(18),
-    backgroundColor: '#C8E6C9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: scale(12),
-  },
-  emojiText: {
-    fontSize: moderateScale(16),
-  },
-  greenCardText: {
-    fontSize: moderateScale(14),
-    fontFamily: getFontFamily('ApercuPro', 'Medium'),
-    color: '#2E7D32',
-  },
-  redCard: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: scale(16),
-    padding: scale(16),
-  },
-  redCardText: {
-    fontSize: moderateScale(14),
-    fontFamily: getFontFamily('ApercuPro', 'Medium'),
-    color: '#000000',
-    lineHeight: scale(20),
   },
   emptyContainer: {
     flex: 1,

@@ -316,4 +316,14 @@ export const EyeIcon = (props: SvgProps) => (
   </Svg>
 );
 
+export const LanguageMenuIcon = (props: SvgProps) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>
+    <Path
+      d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v2h11.17C11.5 7.69 10.44 9.57 9 11.14 8.08 10.14 7.33 9.01 6.78 7.8H4.78c.66 1.64 1.61 3.19 2.82 4.56L2.69 17.18 4.12 18.6l5-4.86 3.16 3.1 3.59-3.77zM18 8h-2l-4.5 12h2l1.12-3h4.75l1.13 3h2L18 8zm-2.62 7l1.62-4.33L18.62 15h-3.24z"
+      fill={props.color || '#CA2027'}
+    />
+  </Svg>
+);
+
+
 

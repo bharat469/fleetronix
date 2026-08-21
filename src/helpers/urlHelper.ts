@@ -12,7 +12,9 @@ export const resolveImageUrl = (path: string | undefined | null) => {
     return path;
   }
   
-  const baseUrl = Config.IMAGE_BASE_URL || (Config.API_BASE_URL || 'http://103.197.76.50:8087/api').replace('/api', '');
+  // Use IMAGE_BASE_URL if set, otherwise derive from API_BASE_URL by stripping /api
+  const baseUrl = Config.IMAGE_BASE_URL || (Config.API_BASE_URL || '').replace(/\/api\/?$/, '');
   const cleanPath = path.replace(/^\//, ''); 
-  return `${baseUrl}/${cleanPath}`;
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  return `${cleanBase}/${cleanPath}`;
 };

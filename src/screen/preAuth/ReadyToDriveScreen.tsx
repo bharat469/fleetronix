@@ -38,11 +38,9 @@ const ReadyToDriveScreen: React.FC<Props> = ({ navigation }) => {
 
   const { mutate: updateDriverMutate, isPending } = useUpdateDriver({
     onSuccess: (data) => {
-      console.log('[ReadyToDrive] Driver update Success:', JSON.stringify(data, null, 2));
       navigation.navigate('CallVerification');
     },
     onError: (err) => {
-      console.error('[ReadyToDrive] Driver update Error:', err.message);
       setTimeout(() => {
         Alert.alert(t('error', 'Error'), err.message);
       }, 100);

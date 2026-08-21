@@ -44,6 +44,17 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
 
   if (type === EventType.PRESS) {
     console.log('User pressed notification in background', notification);
+    const filePath = notification?.data?.filePath;
+    const { Platform } = require('react-native');
+    if (filePath && Platform.OS === 'android') {
+      try {
+        const ReactNativeBlobUtil = require('react-native-blob-util').default;
+        console.log('[index.js] Tapping background notification, opening downloaded PDF:', filePath);
+        ReactNativeBlobUtil.android.actionViewIntent(String(filePath), 'application/pdf');
+      } catch (err) {
+        console.error('[index.js] Failed to open PDF from background notification:', err);
+      }
+    }
   }
 });
 

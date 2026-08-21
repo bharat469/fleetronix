@@ -15,8 +15,12 @@ import { LANGUAGES } from '../../helpers/values/constants';
 import { moderateScale, scale, verticalScale } from '../../helpers/dimension';
 import { COLORS } from '../../helpers/values/colors';
 import LinearGradient from 'react-native-linear-gradient';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import * as authApi from '../../api/authApi';
+import { useQueryClient } from '@tanstack/react-query';
 
-const LanguageSelectionScreen = ({ navigation }: any) => {
+const LanguageSelectionScreen = ({ navigation, route }: any) => {
   const { t } = useTranslation();
   const { currentLanguage, changeLanguage } = useLanguage();
 
@@ -28,9 +32,44 @@ const LanguageSelectionScreen = ({ navigation }: any) => {
     }
   }, [currentLanguage]);
 
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const fromProfile = route.params?.fromProfile;
+  const queryClient = useQueryClient();
+
   const handleContinue = async () => {
     await changeLanguage(selectedLanguage);
-    navigation.navigate('Login');
+    
+    if (fromProfile && driverId && userToken) {
+      const languageMap: Record<string, string> = {
+        'en': 'english',
+        'hi': 'hindi',
+        'te': 'telugu',
+        'kn': 'kannada',
+        'bn': 'bengali',
+        'mr': 'marathi'
+      };
+      
+      const backendLang = languageMap[selectedLanguage] || 'english';
+      
+      try {
+        console.log('[LanguageSelection] Updating language preference on backend:', backendLang);
+        await authApi.updateDriver({
+          driverId,
+          token: userToken,
+          data: {
+            language_preference: backendLang,
+            is_active: true
+          }
+        });
+        await queryClient.invalidateQueries({ queryKey: ['driverInfo', driverId] });
+      } catch (error) {
+        console.error('Failed to update language on backend', error);
+      }
+      
+      navigation.navigate('Home');
+    } else {
+      navigation.navigate('Login');
+    }
   };
 
   const renderLanguageOption = ({ item }: { item: typeof LANGUAGES[0] }) => {

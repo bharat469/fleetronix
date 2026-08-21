@@ -1,4 +1,5 @@
 import apiClient from '../api/apiClient';
+import { LocationService } from './LocationService';
 import { TripResponse, TripParams } from '../types/trip';
 import { store } from '../redux/store';
 import ReactNativeBlobUtil from 'react-native-blob-util';
@@ -9,6 +10,8 @@ import Config from 'react-native-config';
 import axios from 'axios';
 const BASE_URL = Config.API_BASE_URL;
 
+
+
 /**
  * Generic authenticated fetcher to be used with TanStack Query
  */
@@ -18,7 +21,8 @@ export const fetchTrips = async ({ filter, page, per_page }: TripParams): Promis
 
   const response = await apiClient.get(url);
   console.log(`[${new Date().toLocaleTimeString()}] [tripApi] Trips List Success`);
-  return response.data as TripResponse;
+  const resData = response.data as TripResponse;
+  return resData;
 };
 
 /**
@@ -82,6 +86,18 @@ export const postDriverLocation = async (
     // Non-fatal — log and swallow so tracking keeps running
     console.warn('[tripApi] ⚠️ Location post failed:', error?.message);
   }
+};
+
+export const postDriverLocationBatch = async (
+  tripId: string,
+  points: LocationPoint[],
+): Promise<any> => {
+  const url = `driver/trips/${tripId}/location`;
+  console.log(`[tripApi] POST location batch | size=${points.length}`);
+  const response = await apiClient.post(url, {
+    locations: points,
+  });
+  return response.data;
 };
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
@@ -333,6 +349,158 @@ export const confirmDelivery = async (payload: ConfirmDeliveryPayload): Promise<
   }
 };
 
+export interface ReuploadPodPayload {
+  tripId: string;
+  recipientName: string;
+  deliveryDate: string;   // YYYY-MM-DD
+  deliveryTime: string;   // HH:MM
+  confirmationNumber?: string;
+  remark?: string;
+  latitude?: number;
+  longitude?: number;
+  documents?: Array<{ uri: string; name: string; type: string }>;
+  token?: string;
+}
+
+export const reuploadPod = async (payload: ReuploadPodPayload): Promise<any> => {
+  const {
+    tripId,
+    recipientName,
+    deliveryDate,
+    deliveryTime,
+    confirmationNumber,
+    remark,
+    latitude,
+    longitude,
+    documents,
+    token,
+  } = payload;
+
+  const url = `${BASE_URL}/driver/trips/${tripId}/reupload-pod`;
+
+  console.log('[reuploadPod] 📤 Request start (BlobUtil)');
+
+  const multipartBody: any[] = [];
+
+  // 🔹 Text fields
+  multipartBody.push({ name: 'recipient_name', data: recipientName });
+  multipartBody.push({ name: 'delivery_date', data: deliveryDate });
+  multipartBody.push({ name: 'delivery_time', data: deliveryTime });
+  multipartBody.push({ name: 'confirmation_number', data: confirmationNumber ?? '' });
+  multipartBody.push({ name: 'remark', data: remark ?? '' });
+  multipartBody.push({ name: 'latitude', data: String(latitude ?? 0) });
+  multipartBody.push({ name: 'longitude', data: String(longitude ?? 0) });
+
+  // 🔹 File uploads
+  if (documents?.length) {
+    documents.forEach((doc, index) => {
+      const uri = doc.uri;
+      const cleanPath = uri.startsWith('file://')
+        ? decodeURIComponent(uri.replace('file://', ''))
+        : uri;
+
+      console.log(`[tripApi] 📂 Attaching file: key="documents", filename="${doc.name || `document_${index}.jpg`}", path="${cleanPath}", type="${doc.type || 'image/jpeg'}"`);
+
+      multipartBody.push({
+        name: 'documents',
+        filename: doc.name || `document_${index}.jpg`,
+        type: doc.type || 'image/jpeg',
+        data: ReactNativeBlobUtil.wrap(cleanPath),
+      });
+    });
+  } else {
+    multipartBody.push({ name: 'documents', data: '' });
+  }
+
+  try {
+    const response = await ReactNativeBlobUtil.fetch(
+      'POST',
+      url,
+      {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data',
+        Accept: 'application/json',
+      },
+      multipartBody
+    );
+
+    const status = response.info().status;
+
+    let json = null;
+    try {
+      json = response.json();
+    } catch {
+      try {
+        json = JSON.parse(response.data);
+      } catch {
+        json = response.data;
+      }
+    }
+
+    // 🔁 Token refresh logic
+    if (status === 401) {
+      try {
+        const state = store.getState();
+        const refreshToken = state.auth.refreshToken;
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const refreshResponse = await axios.post(
+          `${BASE_URL}/auth/refresh`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${refreshToken}` },
+          }
+        );
+
+        const { access_token } = refreshResponse.data;
+
+        store.dispatch(updateTokens({
+          accessToken: access_token,
+          refreshToken: ''
+        }));
+
+        await storage.set('userToken', access_token);
+
+        // 🔁 Retry request
+        const retryResponse = await ReactNativeBlobUtil.fetch(
+          'POST',
+          url,
+          {
+            Authorization: `Bearer ${access_token}`,
+            'Content-Type': 'multipart/form-data',
+            Accept: 'application/json',
+          },
+          multipartBody
+        );
+
+        const retryStatus = retryResponse.info().status;
+        const retryJson = retryResponse.json();
+
+        if (retryStatus >= 200 && retryStatus < 300) {
+          console.log('[reuploadPod] ✅ Success after refresh:', retryJson);
+          return retryJson;
+        }
+
+      } catch (refreshError) {
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+
+    // ❌ Error handling
+    if (status < 200 || status >= 300) {
+      console.error('[reuploadPod] ❌ Error:', status, json);
+      throw new Error(typeof json === 'object' ? json?.message || 'Re-upload failed' : 'Re-upload failed');
+    }
+
+    console.log('[reuploadPod] ✅ Success:', json);
+    return json;
+
+  } catch (error: any) {
+    console.error('[reuploadPod] ❌ ERROR:', error);
+    throw error;
+  }
+};
+
 /**
  * POST driver/trips/{tripId}/verify-delivery-otp
  */
@@ -464,3 +632,86 @@ export const fetchTripRequests = async (params: TripRequestsParams): Promise<any
   return response.data;
 };
 
+/**
+ * OMG! This is the API caller that tells the server to send an OTP code!
+ * It's super important so the user gets the code on their phone! 📱✨
+ */
+export const sendTripOtp = async ({
+  tripId,
+  codeType,
+  latitude,
+  longitude,
+}: {
+  tripId: string;
+  codeType: 'pickup' | 'delivery';
+  latitude?: number;
+  longitude?: number;
+}): Promise<any> => {
+  console.log(`[tripApi] 🚀 Calling send-otp for trip ${tripId} with type: ${codeType}! Lat: ${latitude}, Lng: ${longitude}`);
+  try {
+    const response = await apiClient.post(`driver/trips/${tripId}/send-otp`, {
+      code_type: codeType,
+      latitude,
+      longitude,
+    });
+    console.log('🎉 OMG it worked! OTP is sent!', response.data);
+    return response.data;
+  } catch (error: any) {
+    const msg = error?.response?.data?.message ?? error?.message ?? 'Failed to send OTP';
+    console.error('😭 Oh noes! We got an error sending the OTP:', msg);
+    throw new Error(msg);
+  }
+};
+
+
+export const sendSOSAlert = async (params: {
+  tripId: string;
+  type: 'accident' | 'truck_failure';
+  lat?: string | number;
+  long?: string | number;
+}): Promise<any> => {
+  const url = 'driver/send_sos_notification';
+
+  let finalLat = params.lat !== undefined && params.lat !== null ? String(params.lat) : undefined;
+  let finalLong = params.long !== undefined && params.long !== null ? String(params.long) : undefined;
+
+  if (!finalLat || !finalLong) {
+    try {
+      const position = await LocationService.getCurrentLocation();
+      if (position?.coords) {
+        if (!finalLat && position.coords.latitude != null) {
+          finalLat = String(position.coords.latitude);
+        }
+        if (!finalLong && position.coords.longitude != null) {
+          finalLong = String(position.coords.longitude);
+        }
+      }
+    } catch (err) {
+      console.warn('[SOS] Could not get current device location:', err);
+    }
+  }
+
+  // Fallback to default coordinates requested by user if still missing
+  if (!finalLat) finalLat = '28.620852';
+  if (!finalLong) finalLong = '77.387506';
+
+  const payload = {
+    trip_id: params.tripId,
+    sos_type: params.type,
+    lat: finalLat,
+    long: finalLong,
+  };
+
+  console.log('[SOS] 🚨 Sending SOS alert via apiClient to:', url);
+  console.log('[SOS] Payload:', payload);
+
+  try {
+    const response = await apiClient.post(url, payload);
+
+    console.log('[SOS] ✅ SOS alert sent successfully:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('[SOS] ❌ Failed to send SOS alert:', error?.response?.data || error.message);
+    throw new Error(error?.response?.data?.message || error.message || 'Failed to send SOS notification');
+  }
+};

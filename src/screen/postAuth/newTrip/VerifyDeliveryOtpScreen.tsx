@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
-import { setTripId } from '../../../redux/slices/tripSlice';
+import { setTripId, setLifecycle } from '../../../redux/slices/tripSlice';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../../helpers/values/colors';
 import { getFontFamily } from '../../../helpers/fonts';
@@ -21,11 +21,13 @@ import { RootStackParamList } from '../../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import OTPInput from '../../../components/otpComponents';
 import { useMutation } from '@tanstack/react-query';
-import { verifyDeliveryOtp } from '../../../services/tripApi';
+import { verifyDeliveryOtp, sendTripOtp } from '../../../services/tripApi';
+import { LocationService } from '../../../services/LocationService';
 import BottomSheetComponent from '../../../components/bottomsheet';
 import ErrorBottomSheet from '../../../components/ErrorBottomSheet';
 import { BackArrowIcon } from '../../../assets/svgIcons';
 import { Trip } from '../../../types/trip';
+import locationTrackingManager from '../../../services/LocationTrackingManager';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerifyDeliveryOtp'>;
 
@@ -42,20 +44,91 @@ const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [tripId, tripRedux.tripId, dispatch]);
 
-  console.log('sdjhjklsd', trip)
+
 
   const [currentOtp, setCurrentOtp] = useState('');
   const [isOtpError, setIsOtpError] = useState(false);
   const [otpErrorMessage, setOtpErrorMessage] = useState('');
+  const [resendTimer, setResendTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+
+  React.useEffect(() => {
+    let interval: any;
+    if (resendTimer > 0 && !canResend) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (resendTimer === 0 && !canResend) {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer, canResend]);
+
+  const handleResendOtp = () => {
+    if (!canResend) return;
+    setCanResend(false);
+    setResendTimer(30);
+    sendOtpMutation.mutate();
+  };
 
   const resetOtpError = () => {
     setIsOtpError(false);
     setOtpErrorMessage('');
   };
 
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => {
+      console.log('🛸 Sending OTP for arrival/delivery, trip ID is:', tripId);
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      try {
+        const position = await LocationService.getCurrentLocation();
+        if (position?.coords) {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        }
+      } catch (err: any) {
+        console.warn('[VerifyDeliveryOtpScreen] Could not retrieve GPS location for OTP:', err.message);
+      }
+      return sendTripOtp({
+        tripId: tripId || '',
+        codeType: 'delivery',
+        latitude,
+        longitude,
+      });
+    },
+    onSuccess: (data) => {
+      console.log('🎉 WHOOO! Delivery OTP sent successfully!', data);
+    },
+    onError: (err) => {
+      console.error('🙀 Oh no! Failed to send delivery OTP:', err.message);
+    },
+  });
+
+  const hasSentOtpRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const isDeliveryOtpVerified =
+      trip?.delivery_code_verified === true ||
+      trip?.delivery_code_verified === 1 ||
+      trip?.delivery_code_verified === 'true' ||
+      trip?.status === 'completed' ||
+      tripRedux?.lifecycle === 'delivered';
+
+    if (tripId && !isDeliveryOtpVerified && !hasSentOtpRef.current) {
+      hasSentOtpRef.current = true;
+      console.log('🌟 Triggering sendOtpMutation in VerifyDeliveryOtpScreen on mount!');
+      sendOtpMutation.mutate();
+    } else {
+      console.log('😎 Delivery OTP already verified, trip completed, or already sent in this screen session, skipping sendOtpMutation!');
+    }
+  }, [tripId, trip, tripRedux]);
+
   const { mutate, isPending } = useMutation({
     mutationFn: verifyDeliveryOtp,
     onSuccess: () => {
+      dispatch(setLifecycle('delivered'));
+      locationTrackingManager.stop();
       navigation.navigate('ConfirmDelivery', { trip });
     },
     onError: (error: Error) => {
@@ -106,6 +179,19 @@ const VerifyDeliveryOtpScreen: React.FC<Props> = ({ route, navigation }) => {
               length={4} 
               onChangeOTP={(val) => setCurrentOtp(val)} 
             />
+            <View style={styles.resendContainer}>
+              {canResend ? (
+                <TouchableOpacity onPress={handleResendOtp} disabled={sendOtpMutation.isPending}>
+                  {sendOtpMutation.isPending ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Text style={styles.resendLink}>Resend OTP</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.resendText}>Resend OTP in {resendTimer}s</Text>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity
@@ -212,5 +298,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.textColor.color2.two,
     shadowOpacity: 0,
     elevation: 0,
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginTop: verticalScale(15),
+  },
+  resendText: {
+    fontFamily: getFontFamily('ApercuPro', 'Regular'),
+    fontSize: moderateScale(14),
+    color: COLORS.textColor.color2.one,
+  },
+  resendLink: {
+    fontFamily: getFontFamily('ApercuPro', 'Bold'),
+    fontSize: moderateScale(14),
+    color: COLORS.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

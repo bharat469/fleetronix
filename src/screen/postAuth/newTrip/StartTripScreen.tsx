@@ -6,7 +6,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import { BackArrowIcon } from '../../../assets/svgIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,13 +16,16 @@ import ErrorBottomSheet from '../../../components/ErrorBottomSheet';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
-import { setActiveTripData, setOtpError, setTripId } from '../../../redux/slices/tripSlice';
+import { setActiveTripData, setOtpError, setTripId, resetTrip } from '../../../redux/slices/tripSlice';
 import { useStartTrip } from '../../../hooks/useStartTrip';
 import { Trip } from '../../../types/trip';
 import Config from 'react-native-config';
 import Geolocation from 'react-native-geolocation-service';
 import { getDistance } from 'geolib';
 import { COLORS } from '../../../helpers/values/colors';
+import { useMutation } from '@tanstack/react-query';
+import { LocationService } from '../../../services/LocationService';
+import { sendTripOtp } from '../../../services/tripApi';
 
 const GOOGLE_API_KEY = Config.GOOGLE_MAPS_API_KEY ?? '';
 
@@ -104,6 +107,8 @@ const StartTripScreen = () => {
 
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
+  const [mapMetrics, setMapMetrics] = useState<{ distance: string; duration: string } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
 
   const {
@@ -114,10 +119,61 @@ const StartTripScreen = () => {
     isOtpError,
     otpErrorMessage,
     resetOtpError
-  } = useStartTrip();
+  } = useStartTrip(trip);
 
   const [currentOtp, setCurrentOtp] = useState('');
   const cardAnim = useRef(new Animated.Value(0)).current;
+
+  const [resendTimer, setResendTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+
+  useEffect(() => {
+    let interval: any;
+    if (resendTimer > 0 && !canResend) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (resendTimer === 0 && !canResend) {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer, canResend]);
+
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => {
+      console.log('🛸 Resending OTP for pickup/start trip, trip ID is:', tripId);
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      try {
+        const position = await LocationService.getCurrentLocation();
+        if (position?.coords) {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        }
+      } catch (err: any) {
+        console.warn('[StartTripScreen] Could not retrieve GPS location for OTP:', err.message);
+      }
+      return sendTripOtp({
+        tripId: tripId || '',
+        codeType: 'pickup',
+        latitude,
+        longitude,
+      });
+    },
+    onSuccess: (data) => {
+      console.log('🎉 Pickup OTP resent successfully!', data);
+    },
+    onError: (err) => {
+      console.error('Failed to resend pickup OTP:', err.message);
+    },
+  });
+
+  const handleResendOtp = () => {
+    if (!canResend) return;
+    setCanResend(false);
+    setResendTimer(30);
+    sendOtpMutation.mutate();
+  };
 
   // Tracking state for proximity check
   const [driverLoc, setDriverLoc] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -140,10 +196,31 @@ const StartTripScreen = () => {
 
   // Initial navigation check
   useEffect(() => {
+    if (trip?.status === 'completed') {
+      console.log('🎉 [StartTrip] Trip status is completed. Clearing trip state and resetting stack to Home.');
+      dispatch(resetTrip());
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+      return;
+    }
+
+    const isDeliveryVerified =
+      trip?.delivery_code_verified === true ||
+      trip?.delivery_code_verified === 1 ||
+      trip?.delivery_code_verified === 'true' ||
+      tripRedux?.lifecycle === 'delivered';
+
+    if (isDeliveryVerified && trip?.status !== 'completed') {
+      navigation.replace('ConfirmDelivery', { trip });
+      return;
+    }
+
     const tripId = trip?.trip_id || trip?.id || tripRedux.tripId || '';
     if (trip?.pickup_code_verified) {
       navigation.replace('LiveTracking', { trip });
-    } else if (trip?.status === 'started') {
+    } else if (trip?.status === 'started' || trip?.status === 'ongoing') {
       navigation.replace('LiveTracking', { trip });
     }
   }, []);
@@ -226,13 +303,71 @@ const StartTripScreen = () => {
           origin={{ latitude: srcLat, longitude: srcLng }}
           destination={{ latitude: dstLat, longitude: dstLng }}
           apikey={GOOGLE_API_KEY}
-          strokeWidth={4}
-          strokeColor="#CA2027"
+          strokeWidth={0}          /* hidden — Polyline below draws the line */
+          strokeColor="transparent"
+          lineDashPattern={[]}
+          onReady={(result) => {
+            setRouteCoords(result.coordinates);
+            setMapMetrics({
+              distance: `${result.distance.toFixed(1)} km`,
+              duration: `${Math.ceil(result.duration)} mins`,
+            });
+            mapRef.current?.fitToCoordinates(result.coordinates, {
+              edgePadding: { top: 80, right: 40, bottom: 380, left: 40 },
+              animated: true,
+            });
+          }}
+          onError={(err) => console.warn('[StartTrip] Directions API error:', err)}
         />
-        <Marker coordinate={{ latitude: srcLat, longitude: srcLng }} title="Pickup" pinColor="green" />
-        <Marker coordinate={{ latitude: dstLat, longitude: dstLng }} title="Destination" pinColor="red" />
+
+        {/* Always-visible connector — road route when API succeeds, dashed straight line as fallback */}
+        <Polyline
+          coordinates={
+            routeCoords.length >= 2
+              ? routeCoords
+              : [
+                  { latitude: srcLat, longitude: srcLng },
+                  { latitude: dstLat, longitude: dstLng },
+                ]
+          }
+          strokeColor="#CA2027"
+          strokeWidth={4}
+          lineDashPattern={routeCoords.length >= 2 ? [] : [8, 4]}
+        />
+
+        {/* Pickup marker — green */}
+        <Marker coordinate={{ latitude: srcLat, longitude: srcLng }} title="Pickup" anchor={{ x: 0.5, y: 0.5 }}>
+          <View style={styles.pickupPin}>
+            <View style={styles.pinInner} />
+          </View>
+        </Marker>
+
+        {/* Destination marker — red */}
+        <Marker coordinate={{ latitude: dstLat, longitude: dstLng }} title="Destination" anchor={{ x: 0.5, y: 0.5 }}>
+          <View style={styles.destPin}>
+            <View style={styles.pinInner} />
+          </View>
+        </Marker>
+
         {driverLoc && <Marker coordinate={driverLoc} title="You" />}
       </MapView>
+
+      {/* Floating route badge */}
+      {mapMetrics && (
+        <View style={styles.mapBadge}>
+          <View style={styles.mapBadgeItem}>
+            <Text style={styles.mapBadgeIcon}>📍</Text>
+            <Text style={styles.mapBadgeValue}>{mapMetrics.distance}</Text>
+            <Text style={styles.mapBadgeLabel}>Distance</Text>
+          </View>
+          <View style={styles.mapBadgeDivider} />
+          <View style={styles.mapBadgeItem}>
+            <Text style={styles.mapBadgeIcon}>⏱</Text>
+            <Text style={styles.mapBadgeValue}>{mapMetrics.duration}</Text>
+            <Text style={styles.mapBadgeLabel}>Est. Time</Text>
+          </View>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Home')}>
         <BackArrowIcon />
@@ -246,10 +381,10 @@ const StartTripScreen = () => {
         </View>
 
         <View style={styles.statsGrid}>
-          <Pill label="Total Distance" value={calculatedDistance} color="#CA2027" bg="#FFF5F5" />
-          <Pill label="Weight" value={trip?.item_weight?.total_weight || trip?.weight || '12 Tons'} color="#4CAF50" bg="#E8F5E9" />
-          <Pill label="Price" value={`₹${trip?.total_trip_cost || '5000'}`} color="#2196F3" bg="#E3F2FD" />
-          <Pill label="Vehicle" value={trip?.truck_type || 'Open Truck'} color="#9C27B0" bg="#F3E5F5" />
+          <Pill label="Total Distance" value={trip?.estimated_distance_km ? `${trip.estimated_distance_km} km` : calculatedDistance} color="#CA2027" bg="#FFF5F5" />
+          <Pill label="Weight" value={trip?.actual_material_loaded ? `${trip.actual_material_loaded} ${trip.load_unit || ''}`.trim() : (trip?.item_weight?.total_weight || trip?.weight || '12 Tons')} color="#4CAF50" bg="#E8F5E9" />
+          <Pill label="Price" value={`₹${trip?.trip_cost || trip?.total_trip_cost || '5000'}`} color="#2196F3" bg="#E3F2FD" />
+          <Pill label="Vehicle" value={trip?.vehicle_type_name || trip?.truck_type || 'Open Truck'} color="#9C27B0" bg="#F3E5F5" />
         </View>
 
         {isOtpVerified ? (
@@ -270,13 +405,28 @@ const StartTripScreen = () => {
           <View>
             <Text style={styles.otpLabel}>Enter Pickup OTP</Text>
             <OTPInputLocal length={4} onChangeOTP={setCurrentOtp} disabled={isLoading} />
+            
+            <View style={styles.resendContainer}>
+              {canResend ? (
+                <TouchableOpacity onPress={handleResendOtp} disabled={sendOtpMutation.isPending}>
+                  {sendOtpMutation.isPending ? (
+                    <ActivityIndicator size="small" color="#CA2027" />
+                  ) : (
+                    <Text style={styles.resendLink}>Resend OTP</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.resendText}>Resend OTP in {resendTimer}s</Text>
+              )}
+            </View>
+
             <TouchableOpacity
               style={[styles.confirmBtn, currentOtp.length < 4 && styles.disabledConfirmBtn]}
               onPress={handleConfirm}
-                disabled={currentOtp.length < 4 || isLoading}
-              >
-                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>Confirm</Text>}
-              </TouchableOpacity>
+              disabled={currentOtp.length < 4 || isLoading}
+            >
+              {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>Confirm</Text>}
+            </TouchableOpacity>
           </View>
         )}
       </Animated.View>
@@ -317,6 +467,80 @@ const styles = StyleSheet.create({
   startTripWrapper: { alignItems: 'center' },
   otpSuccessText: { color: '#4CAF50', fontWeight: '700', fontSize: 16, marginBottom: 5 },
   proximityHint: { color: '#666', fontSize: 14, marginBottom: 20, textAlign: 'center' },
+  // ── Custom map markers ──
+  pickupPin: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  destPin: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#CA2027',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  pinInner: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'white',
+  },
+  // ── Floating map badge ──
+  mapBadge: {
+    position: 'absolute',
+    top: 54,
+    right: 16,
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    gap: 10,
+    alignItems: 'center',
+  },
+  mapBadgeItem: { alignItems: 'center', gap: 1 },
+  mapBadgeIcon: { fontSize: 12 },
+  mapBadgeValue: { fontSize: 12, fontWeight: '800', color: '#1A1A2E' },
+  mapBadgeLabel: { fontSize: 8, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
+  mapBadgeDivider: { width: 1, height: 26, backgroundColor: '#F0F0F0' },
+  resendContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  resendText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  resendLink: {
+    fontSize: 14,
+    color: '#CA2027',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });
 
 export default StartTripScreen;

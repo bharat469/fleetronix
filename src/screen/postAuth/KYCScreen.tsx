@@ -46,6 +46,7 @@ const FolderIcon = () => (
 const DocSection = ({ label, fileName, status, statusType, onRemove, onView, onDownload }: any) => {
   const isVerified = statusType === 'verified';
   const isError = statusType === 'error';
+  const isPending = statusType === 'pending';
 
   return (
     <View style={styles.docSection}>
@@ -55,7 +56,7 @@ const DocSection = ({ label, fileName, status, statusType, onRemove, onView, onD
           <Text style={styles.fileNameText} numberOfLines={1}>{fileName || `Upload ${label}`}</Text>
         </View>
         <TouchableOpacity style={styles.docActionIcon}>
-          {isVerified || isError ? (
+          {isVerified || isError || isPending ? (
              <CloseCircleIcon color="#D1D1D1" />
           ) : (
             <FolderIcon />
@@ -84,14 +85,16 @@ const DocSection = ({ label, fileName, status, statusType, onRemove, onView, onD
         <View style={[
           styles.statusBanner,
           isVerified && styles.verifiedBanner,
-          isError && styles.errorBanner
+          isError && styles.errorBanner,
+          isPending && styles.pendingBanner
         ]}>
           <View style={styles.statusInner}>
-             <Text style={styles.emojiText}>{isVerified ? '✌️' : '⚠️'}</Text>
+             <Text style={styles.emojiText}>{isVerified ? '✌️' : isPending ? '⏳' : '⚠️'}</Text>
              <Text style={[
                styles.statusTextContent,
                isVerified && styles.verifiedText,
-               isError && styles.errorText
+               isError && styles.errorText,
+               isPending && styles.pendingText
              ]}>
                {status}
              </Text>
@@ -100,6 +103,49 @@ const DocSection = ({ label, fileName, status, statusType, onRemove, onView, onD
       )}
     </View>
   );
+};
+
+const getDocStatusDetails = (
+  path: string | undefined, 
+  docObj: { status?: string; remark?: string | null } | undefined, 
+  label: string
+) => {
+  if (!path) {
+    return {
+      statusText: `${label} not uploaded`,
+      statusType: 'error',
+      hasDoc: false
+    };
+  }
+
+  const apiStatus = docObj?.status;
+  const remark = docObj?.remark;
+
+  if (apiStatus === 'approved') {
+    return {
+      statusText: `${label} verified`,
+      statusType: 'verified',
+      hasDoc: true
+    };
+  } else if (apiStatus === 'rejected') {
+    return {
+      statusText: remark ? `Rejected: ${remark}` : `${label} rejected, please re-upload`,
+      statusType: 'error',
+      hasDoc: true
+    };
+  } else if (apiStatus === 'pending') {
+    return {
+      statusText: `${label} pending verification`,
+      statusType: 'pending',
+      hasDoc: true
+    };
+  } else {
+    return {
+      statusText: `${label} pending verification`,
+      statusType: 'pending',
+      hasDoc: true
+    };
+  }
 };
 
 const KYCScreen = () => {
@@ -122,6 +168,10 @@ const KYCScreen = () => {
   const licenseUrl = driver?.driving_licence_path 
     ? resolveImageUrl(driver.driving_licence_path) 
     : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+  const aadhaarDetails = getDocStatusDetails(driver?.aadhar_path, driver?.aadhaar, 'Aadhaar');
+  const panDetails = getDocStatusDetails(driver?.pan_card_path, driver?.pan, 'PAN');
+  const licenseDetails = getDocStatusDetails(driver?.driving_licence_path, driver?.dl, 'License');
 
   const handleViewDoc = async (url: string) => {
     try {
@@ -198,28 +248,28 @@ const KYCScreen = () => {
           <DocSection
             label="Aadhaar"
             fileName={driver?.aadhar_path ? driver.aadhar_path.split('/').pop() : "Not Uploaded"}
-            status={driver?.aadhar_path ? "Aadhaar documents verified" : "Aadhaar not uploaded"}
-            statusType={driver?.aadhar_path ? "verified" : "error"}
-            onView={driver?.aadhar_path ? () => handleViewDoc(aadharUrl) : undefined}
-            onDownload={driver?.aadhar_path ? () => handleDownloadDoc(aadharUrl, 'Aadhaar') : undefined}
+            status={aadhaarDetails.statusText}
+            statusType={aadhaarDetails.statusType}
+            onView={aadhaarDetails.hasDoc ? () => handleViewDoc(aadharUrl) : undefined}
+            onDownload={aadhaarDetails.hasDoc ? () => handleDownloadDoc(aadharUrl, 'Aadhaar') : undefined}
           />
 
           <DocSection
             label="PAN"
             fileName={driver?.pan_card_path ? driver.pan_card_path.split('/').pop() : "Not Uploaded"}
-            status={driver?.pan_card_path ? "PAN verified" : "PAN not uploaded or pending verification"}
-            statusType={driver?.pan_card_path ? "verified" : "error"}
-            onView={driver?.pan_card_path ? () => handleViewDoc(panUrl) : undefined}
-            onDownload={driver?.pan_card_path ? () => handleDownloadDoc(panUrl, 'PAN_Card') : undefined}
+            status={panDetails.statusText}
+            statusType={panDetails.statusType}
+            onView={panDetails.hasDoc ? () => handleViewDoc(panUrl) : undefined}
+            onDownload={panDetails.hasDoc ? () => handleDownloadDoc(panUrl, 'PAN_Card') : undefined}
           />
 
           <DocSection
             label="License"
             fileName={driver?.driving_licence_path ? driver.driving_licence_path.split('/').pop() : "Not Uploaded"}
-            status={driver?.driving_licence_path ? "driving license verified" : "driving license not uploaded"}
-            statusType={driver?.driving_licence_path ? "verified" : "error"}
-            onView={driver?.driving_licence_path ? () => handleViewDoc(licenseUrl) : undefined}
-            onDownload={driver?.driving_licence_path ? () => handleDownloadDoc(licenseUrl, 'Driving_License') : undefined}
+            status={licenseDetails.statusText}
+            statusType={licenseDetails.statusType}
+            onView={licenseDetails.hasDoc ? () => handleViewDoc(licenseUrl) : undefined}
+            onDownload={licenseDetails.hasDoc ? () => handleDownloadDoc(licenseUrl, 'Driving_License') : undefined}
           />
         </View>
       </ScrollView>
@@ -377,6 +427,9 @@ const styles = StyleSheet.create({
   errorBanner: {
     backgroundColor: '#FFEBEE',
   },
+  pendingBanner: {
+    backgroundColor: '#FFF8E1',
+  },
   statusInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -394,7 +447,10 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
   },
   errorText: {
-    color: '#000',
+    color: '#CA2027',
+  },
+  pendingText: {
+    color: '#FF8F00',
   },
   bottomActions: {
     position: 'absolute',

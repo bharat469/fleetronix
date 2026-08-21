@@ -1,30 +1,54 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Trip } from '../types/trip';
 import { COLORS } from '../helpers/values/colors';
 import { scale, verticalScale, moderateScale } from '../helpers/dimension';
-import { PhoneIcon, ProfileIcon } from '../assets/svgIcons';
-import Config from 'react-native-config';
-
+import { PhoneIcon } from '../assets/svgIcons';
+import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import { useDriverInfo } from '../hooks/useAuth';
 
 interface TripCardProps {
   trip: Trip;
   onPress?: (trip: Trip) => void;
+  onContactPress?: (trip: Trip) => void;
 }
 
-const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
+const TripCard: React.FC<TripCardProps> = ({ trip, onPress, onContactPress }) => {
+  const { t } = useTranslation();
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse } = useDriverInfo(driverId || '', userToken || '', !!driverId && !!userToken);
+  const driver = driverResponse?.data;
+  const isDriverSelf = driver?.driver_source === 'self' || trip.driver_source === 'self';
+
+  const handleContactPress = () => {
+    if (onContactPress) {
+      onContactPress(trip);
+      return;
+    }
+    const phone = trip.customer_mobile ||
+      trip.driver_mobile ||
+      (trip as any).phoneNumber ||
+      ((trip as any).transporter && (trip as any).transporter.mobile) ||
+      '';
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    } else {
+      Alert.alert(t('error', 'Error'), t('contact_phone_not_available', 'Contact phone number not available.'));
+    }
+  };
+
   const getStatusDetails = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'assigned':
-        return { label: 'Assigned', bgColor: '#E0F2FE', textColor: '#0369A1' }; // Blue
+        return { label: t('assigned', 'Assigned'), bgColor: '#E0F2FE', textColor: '#0369A1' }; // Blue
       case 'started':
       case 'in_progress':
       case 'ongoing':
-        return { label: 'Ongoing', bgColor: '#FEF3C7', textColor: '#B45309' }; // Amber/Yellow
-      case 'completed':
-        return { label: 'Completed', bgColor: '#DCFCE7', textColor: '#15803D' }; // Green
+        return { label: t('ongoing', 'Ongoing'), bgColor: '#FEF3C7', textColor: '#B45309' }; // Amber/Yellow
       default:
-        return { label: status || 'Pending', bgColor: '#F3F4F6', textColor: '#374151' }; // Gray
+        return { label: status || t('pending', 'Pending'), bgColor: '#F3F4F6', textColor: '#374151' }; // Gray
     }
   };
 
@@ -32,13 +56,27 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
 
   // Compute shipper name display values
   const hasShipperNameParts = !!(trip.shipper_name_first || trip.shipper_name_last);
-  const displayShipperName = hasShipperNameParts
-    ? `${trip.shipper_name_first || ''} ${trip.shipper_name_last || ''}`.trim()
-    : (trip.shipperName || '').split(' ')[0] || 'Name';
-
   const fullShipperName = hasShipperNameParts
     ? `${trip.shipper_name_first || ''} ${trip.shipper_name_last || ''}`.trim()
-    : trip.shipperName || 'N/A';
+    : trip.shipperName || '--';
+
+  const transporterName = (trip as any).transporter_company_name ||
+    ((trip as any).transporter && (trip as any).transporter.company_name) ||
+    trip.owner_name ||
+    '--';
+
+  const pickup = trip.source_city || trip.pickup_city || '--';
+  const drop = trip.destination_city || trip.drop_city || '--';
+
+  // Format currency/amount
+  const formatAmount = (cost: any) => {
+    if (!cost) return '₹ 12,000';
+    const cleanCost = String(cost).replace(/₹|Rs\.?\s?/g, '').trim();
+    return `₹ ${cleanCost}`;
+  };
+
+  const isCompleted = trip.status?.toLowerCase() === 'completed';
+  const ratingValue = (trip as any).rating || (trip as any).trip_rating || (trip as any).feedback?.rating;
 
   return (
     <TouchableOpacity
@@ -47,85 +85,76 @@ const TripCard: React.FC<TripCardProps> = ({ trip, onPress }) => {
       onPress={() => onPress?.(trip)}
     >
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.loadId}>Load Id - #{trip.load_number || trip.load_id || trip.trip_number}</Text>
-          {!!trip.trip_number && (
-            <Text style={styles.tripNumber}>Trip Number - #{trip.trip_number}</Text>
-          )}
+        <View style={styles.routeContainer}>
+          <Text style={styles.routeText}>{`${pickup} ➜ ${drop}`}</Text>
         </View>
-        {trip.status && (
-          <View style={[styles.statusTag, { backgroundColor: statusDetails.bgColor }]}>
-            <Text style={[styles.statusText, { color: statusDetails.textColor }]}>{statusDetails.label}</Text>
+
+        {isCompleted ? (
+          <View style={styles.completedBadgeContainer}>
+            <Text style={styles.completedRatingText}>{ratingValue || '4.3'} ⭐</Text>
+            <View style={styles.greenTickCircle}>
+              <Text style={styles.whiteTickText}>✓</Text>
+            </View>
           </View>
+        ) : (
+          trip.status && (
+            <View style={[styles.statusTag, { backgroundColor: statusDetails.bgColor }]}>
+              <Text style={[styles.statusText, { color: statusDetails.textColor }]}>{statusDetails.label}</Text>
+            </View>
+            )
         )}
       </View>
 
-      <View style={styles.mainContent}>
-        <View style={styles.profileSection}>
-          <View style={styles.imageWrapper}>
-            {!!(trip.driver_photo_url || trip.image) ? (
-              <Image
-                source={{
-                  uri: String(trip.driver_photo_url || trip.image).startsWith('http')
-                    ? (trip.driver_photo_url || trip.image)
-                    : `${Config.IMAGE_BASE_URL}${trip.driver_photo_url || trip.image}`
-                }}
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={[styles.profileImage, styles.profilePlaceholder]}>
-                <ProfileIcon color="#858080" width={scale(40)} height={scale(40)} />
-              </View>
-            )}
-            {
-              (trip.driver_photo_url || trip.image) && (
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.checkMark}>✓</Text>
-                </View>
-              )
-            }
-          </View>
-          <Text style={styles.nameText}>{displayShipperName}</Text>
-        </View>
+      <Text style={styles.tripIdText}>{t('trip_id_label', 'Trip id')} - #{trip.trip_number || trip.trip_id || trip.load_id || 'N/A'}</Text>
 
-        <View style={styles.detailsGrid}>
-          <DetailRow label="Shipper Name" value={fullShipperName} />
-          <DetailRow label="Task" value={trip.task || "Chemical Delivery"} />
-          <DetailRow label="Pickup" value={trip.source_city || trip.pickup_city || 'N/A'} />
-          <DetailRow label="Drop" value={trip.destination_city || trip.drop_city || 'N/A'} />
-          <DetailRow label="Trip Estimate" value={`Rs ${trip.trip_cost || trip.trip_estimate || '0'}`} />
-        </View>
+      <View style={styles.gridContainer}>
+        <GridRow label={t('shipper', 'Shipper')} value={fullShipperName} />
+        <GridRow label={t('transporter', 'Transporter')} value={transporterName} />
+        <GridRow label={t('task', 'Task')} value={trip.task || 'Cement'} />
+        <GridRow label={t('pickup', 'Pickup')} value={trip.source_address || trip.pickup_city || '12/24 Carol Bagh, New Delhi....'} />
+        <GridRow label={t('drop', 'Drop')} value={trip.destination_address || trip.drop_city || '12/34 Church Street, Thane, Mumbai'} />
+        {isDriverSelf && (
+          <GridRow
+            label={t('amount', 'Amount')}
+            value={formatAmount(trip.amount || trip.total_trip_cost || trip.price || trip.trip_estimate)}
+            valueStyle={styles.earningValueText}
+          />
+        )}
       </View>
 
       <View style={styles.divider} />
 
-      <TouchableOpacity style={styles.contactContainer} activeOpacity={0.6}>
-        <PhoneIcon color={COLORS.primary} width={20} height={20} />
-        <Text style={styles.contactText}>Get in Contact</Text>
+      <TouchableOpacity
+        style={styles.contactContainer}
+        activeOpacity={0.6}
+        onPress={handleContactPress}
+      >
+        <PhoneIcon color={COLORS.primary} width={scale(18)} height={scale(18)} />
+        <Text style={styles.contactText}>{isCompleted ? t('get_support', 'Get Support') : t('get_in_contact', 'Get in Contact')}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
 };
 
-const DetailRow = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.row}>
-    <Text style={styles.label}>{label}</Text>
-    <Text style={styles.value} numberOfLines={1}>{value}</Text>
+const GridRow = ({ label, value, valueStyle }: { label: string; value: string; valueStyle?: any }) => (
+  <View style={styles.gridRow}>
+    <Text style={styles.gridLabel}>{label}</Text>
+    <Text style={[styles.gridValue, valueStyle]} numberOfLines={2}>{value}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
-    borderRadius: scale(30),
+    borderRadius: scale(24),
     padding: scale(20),
     marginVertical: verticalScale(10),
     marginHorizontal: scale(20),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 4,
+    elevation: 2,
     borderWidth: 1,
     borderColor: '#EEEEEE',
   },
@@ -133,21 +162,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: verticalScale(15),
   },
-  loadId: {
-    fontSize: moderateScale(15),
+  routeContainer: {
+    flex: 1,
+    marginRight: scale(10),
+  },
+  routeText: {
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#000',
   },
-  tripNumber: {
-    fontSize: moderateScale(11),
+  tripIdText: {
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#858080',
-    marginTop: verticalScale(2),
+    marginTop: verticalScale(4),
+    marginBottom: verticalScale(15),
   },
   statusTag: {
-    paddingHorizontal: scale(10),
+    paddingHorizontal: scale(12),
     paddingVertical: verticalScale(4),
     borderRadius: scale(12),
   },
@@ -155,86 +188,69 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(11),
     fontWeight: '700',
   },
-  mainContent: {
+  completedBadgeContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(6),
+  },
+  completedRatingText: {
+    fontSize: moderateScale(14),
+    fontWeight: '700',
+    color: '#333',
+  },
+  greenTickCircle: {
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(10),
+    backgroundColor: '#00C853', // green circle
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whiteTickText: {
+    color: 'white',
+    fontSize: scale(11),
+    fontWeight: 'bold',
+    lineHeight: scale(13),
+  },
+  gridContainer: {
+    marginTop: verticalScale(5),
+  },
+  gridRow: {
+    flexDirection: 'row',
+    marginVertical: verticalScale(6),
     alignItems: 'flex-start',
   },
-  profileSection: {
-    alignItems: 'center',
-    width: scale(70),
-  },
-  imageWrapper: {
-    position: 'relative',
-  },
-  profileImage: {
-    width: scale(64),
-    height: scale(64),
-    borderRadius: scale(32),
-    backgroundColor: '#F5F5F5',
-  },
-  profilePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    left: 0,
-    top: verticalScale(2),
-    width: scale(16),
-    height: scale(16),
-    borderRadius: scale(8),
-    backgroundColor: '#4CD964',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'white',
-  },
-  checkMark: {
-    color: 'white',
-    fontSize: scale(8),
-    fontWeight: 'bold',
-  },
-  nameText: {
-    marginTop: verticalScale(8),
-    fontSize: moderateScale(18),
-    fontWeight: '700',
-    color: '#000',
-  },
-  detailsGrid: {
-    flex: 1,
-    marginLeft: scale(20),
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: verticalScale(6),
-  },
-  label: {
-    fontSize: moderateScale(12),
+  gridLabel: {
+    width: scale(100),
+    fontSize: moderateScale(14),
     color: '#858080',
-    width: '45%',
+    fontWeight: '400',
   },
-  value: {
-    fontSize: moderateScale(12),
-    color: '#333333',
-    fontWeight: '600',
+  gridValue: {
     flex: 1,
+    fontSize: moderateScale(14),
+    color: '#000',
+    fontWeight: '600',
+  },
+  earningValueText: {
+    color: '#00C853', // Green text for earning value
   },
   divider: {
     height: 1,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#E5E7EB',
     marginVertical: verticalScale(15),
   },
   contactContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: scale(5),
+    paddingVertical: verticalScale(5),
   },
   contactText: {
     fontSize: moderateScale(16),
     color: COLORS.primary,
     fontWeight: '600',
-    marginLeft: scale(10),
+    marginLeft: scale(8),
   },
 });
 

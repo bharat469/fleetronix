@@ -48,6 +48,18 @@ export interface Trip {
   driver_mobile?: string;
   owner_name?: string;
   vehicle_number?: string;
+  pod_recipient_name?: string;
+  pod_delivery_date?: string;
+  pod_delivery_time?: string;
+  pod_confirmation_number?: string;
+  pod_status?: 'pending' | 'approved' | 'rejected' | string;
+  pod_submitted?: boolean;
+  pod_documents?: string[];
+  pod_can_reupload?: boolean;
+  pod_reupload_count?: number;
+  pod_rejection_remark?: string | null;
+  driver_source?: string;
+  amount?: string | number;
 }
 
 export interface Pagination {

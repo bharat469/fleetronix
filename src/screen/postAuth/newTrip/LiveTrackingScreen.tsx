@@ -8,6 +8,7 @@
  *  - animateMarkerToCoordinate for smooth truck movement
  *  - Proximity detection → shows "Slide to Deliver" when within 500m
  *  - Successful slide → navigate to ConfirmDelivery (proof of delivery)
+ *  - SOS emergency button with long-press activation
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -20,6 +21,7 @@ import {
   Image,
   Linking,
   StatusBar,
+  Platform,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
@@ -30,11 +32,17 @@ import { useSelector, useDispatch } from 'react-redux';
 import { notificationService } from '../../../services/NotificationService';
 
 import { RootState } from '../../../redux/store';
-import { setLiveLocation, setTripId } from '../../../redux/slices/tripSlice';
+import { setLiveLocation, setTripId, resetTrip } from '../../../redux/slices/tripSlice';
 import { scale, verticalScale, moderateScale, SCREEN } from '../../../helpers/dimension';
 import { RootStackParamList } from '../../../navigation/types';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useLocationTracking } from '../../../hooks/useLocationTracking';
+import { useTripBreif, useTripDetails, useSendSOS } from '../../../hooks/useTripDetails';
+import { useDriverInfo } from '../../../hooks/useAuth';
+import { resolveImageUrl } from '../../../helpers/urlHelper';
+import { getDistance } from 'geolib';
+import SOSButton from '../../../components/SOSButton';
+import SOSBottomSheet from '../../../components/common/SOSBottomSheet';
 
 const GOOGLE_MAPS_API_KEY = Config.GOOGLE_MAPS_API_KEY ?? '';
 const NEAR_DEST_KM  = 0.5;
@@ -121,18 +129,42 @@ const TruckMapIcon = ({ color = '#CA2027', size = 36 }) => (
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-// MOCK MODE - disabled real tracking on this screen only
-const MOCK_MODE = true; 
-// TODO: Re-enable real live tracking later
-
 const LiveTrackingScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route      = useRoute<RouteProp<RootStackParamList, 'LiveTracking'>>();
   const { trip }   = route.params;
   const dispatch  = useDispatch();
   const mapRef    = useRef<MapView>(null);
+  const markerRef = useRef<any>(null);
   const tripRedux = useSelector((state: RootState) => state.trip);
   const tripId    = tripRedux.tripId || trip?.trip_id || trip?.id;
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse } = useDriverInfo(driverId || '', userToken || '', !!driverId && !!userToken);
+  const driver = driverResponse?.data;
+
+  // Fetch live trip details — brief refetches every 15 s to keep current_location fresh
+  const { data: apiData } = useTripDetails(tripId);
+
+  const lastBriefStatusRef = useRef<string | null>(null);
+
+  const isStatusActive = (status?: string | null) => {
+    if (!status) return true;
+    const lower = status.toLowerCase();
+    return lower !== 'completed' && lower !== 'delivered' && lower !== 'cancelled';
+  };
+
+  const isTripActive =
+    !!tripId &&
+    isStatusActive(apiData?.status) &&
+    isStatusActive(lastBriefStatusRef.current) &&
+    tripRedux?.lifecycle !== 'delivered';
+
+  const { data: apiBriefData } = useTripBreif(tripId, isTripActive);
+
+  if (apiBriefData?.status) {
+    lastBriefStatusRef.current = apiBriefData.status;
+  }
+  const data = { ...apiBriefData, ...apiData };
 
   useEffect(() => {
     if (tripId && !tripRedux.tripId) {
@@ -140,75 +172,156 @@ const LiveTrackingScreen: React.FC = () => {
     }
   }, [tripId, tripRedux.tripId, dispatch]);
 
+  useEffect(() => {
+    const isCompleted = data?.status === 'completed' || trip?.status === 'completed';
+    if (isCompleted) {
+      console.log('🎉 [LiveTracking] Trip status is completed. Clearing trip state and resetting stack to Home.');
+      dispatch(resetTrip());
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+      return;
+    }
 
+    const isDeliveryVerified =
+      data?.delivery_code_verified === true ||
+      data?.delivery_code_verified === 1 ||
+      data?.delivery_code_verified === 'true' ||
+      trip?.delivery_code_verified === true ||
+      trip?.delivery_code_verified === 1 ||
+      trip?.delivery_code_verified === 'true' ||
+      tripRedux?.lifecycle === 'delivered';
 
-  // Real GPS Tracking - only active on this screen and if NOT in mock mode
-  useLocationTracking(tripId, !MOCK_MODE);
+    if (isDeliveryVerified && tripId) {
+      console.log('🏁 Delivery is verified! Redirecting to ConfirmDelivery Screen from LiveTracking.');
+      navigation.replace('ConfirmDelivery', { trip: { ...trip, ...data } });
+    }
+  }, [data, trip, tripId, tripRedux?.lifecycle, dispatch, navigation]);
 
-  // Revert to manual state/effects as per user's earlier monolithic design
+  const liveCoord = tripRedux.liveLocation;
+
+  // ── Dynamic current location from API or local GPS ─────────────────────────
+  const currentLocFromApi = apiBriefData?.current_location ?? apiData?.current_location;
+  const currentLat = currentLocFromApi?.lat ?? currentLocFromApi?.latitude ?? liveCoord?.latitude;
+  const currentLng = currentLocFromApi?.lng ?? currentLocFromApi?.longitude ?? liveCoord?.longitude;
+
+  const hasCurrentLocation = !!(currentLat && currentLng);
+
+  // Real GPS Tracking - always enabled when viewing this screen
+  useLocationTracking(tripId, true);
+
+  // Animated marker — starts at current_location if available, else sourceLatitude
   const lastLoc = tripRedux.liveLocation;
+  const initLat = currentLat ?? lastLoc?.latitude  ?? tripRedux.sourceLatitude  ?? 28.5698;
+  const initLng = currentLng ?? lastLoc?.longitude ?? tripRedux.sourceLongitude ?? 77.4812;
   const animatedRegion = useRef(
     new AnimatedRegion({
-      latitude:       lastLoc?.latitude  ?? tripRedux.sourceLatitude  ?? 30.3165,
-      longitude:      lastLoc?.longitude ?? tripRedux.sourceLongitude ?? 78.0322,
+      latitude:       initLat,
+      longitude:      initLng,
       latitudeDelta:  0.03,
       longitudeDelta: 0.03,
     }),
   ).current;
-
-  const simulationRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const simIdxRef     = useRef(0);
-
-  const liveCoord = tripRedux.liveLocation;
   const [nearDestination, setNearDestination] = useState(false);
+  const [sosVisible, setSOSVisible] = useState(false);
+  const [sosLoading, setSOSLoading] = useState(false);
+  const { mutateAsync: sendSOS } = useSendSOS();
 
   const [routeCoords,    setRouteCoords]    = useState<LatLng[]>([]);
   const [completedRoute, setCompletedRoute] = useState<LatLng[]>([]);
   const [remainingRoute, setRemainingRoute] = useState<LatLng[]>([]);
   const [tripMetrics, setTripMetrics] = useState({ distance: '', duration: '' });
 
+  const [directionsOrigin, setDirectionsOrigin] = useState<LatLng | null>(null);
+  const lastDirectionsTime = useRef<number>(0);
+
+  // ── Throttled Google Directions API Origin Updates ──────────────────────────
+  useEffect(() => {
+    if (!currentLat || !currentLng) return;
+    const currentLoc = { latitude: currentLat, longitude: currentLng };
+    const now = Date.now();
+
+    if (!directionsOrigin) {
+      setDirectionsOrigin(currentLoc);
+      lastDirectionsTime.current = now;
+      console.log('[LiveTracking] Initial Directions Origin Set:', currentLoc);
+    } else {
+      const distance = getDistance(currentLoc, directionsOrigin);
+      const timeElapsed = now - lastDirectionsTime.current;
+
+      // Update directionsOrigin if driver moved > 200m or 5 minutes elapsed
+      if (distance >= 200 || timeElapsed >= 5 * 60 * 1000) {
+        setDirectionsOrigin(currentLoc);
+        lastDirectionsTime.current = now;
+        console.log(`[LiveTracking] Directions Origin Updated. Distance: ${distance.toFixed(1)}m, Time Elapsed: ${(timeElapsed / 1000).toFixed(0)}s`);
+      }
+    }
+  }, [currentLat, currentLng, directionsOrigin]);
+
   const cardAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.spring(cardAnim, { toValue: 1, useNativeDriver: true, tension: 55, friction: 11 }).start();
   }, []);
 
-  // MOCK MODE TIMER
+  // ── Sync truck marker whenever current_location changes from API ────────────
   useEffect(() => {
-    if (MOCK_MODE) {
-      const timer = setTimeout(() => {
-        setNearDestination(true);
-        // Trigger navigation automatically after 10 seconds
-        navigation.navigate('Delivery', { trip });
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [navigation, tripRedux.tripData]);
+    if (!hasCurrentLocation || liveCoord) return; // Skip API updates if we already have local real-time GPS updates
+    const coord = { latitude: currentLat!, longitude: currentLng! };
+    moveTruckTo(coord);
+    // Also update Redux so other screens can read it
+    dispatch(setLiveLocation(coord));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLat, currentLng, liveCoord]);
 
 
+  // Origin = current truck location from API (dynamic)
   const pickup = {
-    latitude:  tripRedux.sourceLatitude       ?? 30.3165,
-    longitude: tripRedux.sourceLongitude      ?? 78.0322,
-  };
-  const dest = {
-    latitude:  tripRedux.destinationLatitude  ?? 30.3630,
-    longitude: tripRedux.destinationLongitude ?? 78.1460,
+    latitude:  currentLat  ?? (parseFloat(data?.source_latitude)  || tripRedux.sourceLatitude  || 28.5698),
+    longitude: currentLng  ?? (parseFloat(data?.source_longitude) || tripRedux.sourceLongitude || 77.4812),
   };
 
-  const driverName  = tripRedux.driverName ?? (tripRedux.tripData as any)?.driver_name ?? 'Driver';
-  const driverPhoto = tripRedux.driverPhoto ?? (tripRedux.tripData as any)?.driver_photo_url
+  // Destination — read from every possible source in priority order
+  const destLat =
+    parseFloat(data?.destination_latitude)   ||
+    parseFloat(trip?.destination_latitude)   ||
+    tripRedux.destinationLatitude            ||
+    13.2277;
+  const destLng =
+    parseFloat(data?.destination_longitude)  ||
+    parseFloat(trip?.destination_longitude)  ||
+    tripRedux.destinationLongitude           ||
+    92.9395;
+  const dest = { latitude: destLat, longitude: destLng };
+
+  // Only render directions when both ends are real coordinates
+  const hasValidRoute =
+    pickup.latitude  !== 0 && pickup.longitude  !== 0 &&
+    dest.latitude    !== 0 && dest.longitude    !== 0 &&
+    hasCurrentLocation;
+
+  const driverName  = (driver?.full_name || driver?.first_name || data?.driver_name) ?? tripRedux.driverName ?? (tripRedux.tripData as any)?.driver_name ?? 'Driver';
+  const driverPhoto = (resolveImageUrl(driver?.photo_path) || data?.driver_photo_url) ?? tripRedux.driverPhoto ?? (tripRedux.tripData as any)?.driver_photo_url
     ?? 'https://randomuser.me/api/portraits/men/32.jpg';
-  const driverPhone = tripRedux.driverMobile ?? (tripRedux.tripData as any)?.driver_mobile;
-  const destAddress = (tripRedux.tripData as any)?.destination_address || 'Destination';
-  const sourceAddress = (tripRedux.tripData as any)?.source_address || 'Logistics Hub';
-  const deliveryTime = (tripRedux.tripData as any)?.estimated_delivery_time || '~3-4 days';
+  const driverPhone = (driver?.phone_number || data?.driver_mobile) ?? tripRedux.driverMobile ?? (tripRedux.tripData as any)?.driver_mobile;
+  const shipperPhone = data?.shipper_mobile || '7777777770';
+  const destAddress = data?.destination_address || data?.destination_city || (tripRedux.tripData as any)?.destination_address || 'Destination';
+  const sourceAddress = data?.source_address || data?.source_city || (tripRedux.tripData as any)?.source_address || 'Logistics Hub';
+  const deliveryTime = data?.estimated_delivery_time || (tripRedux.tripData as any)?.estimated_delivery_time || '~3-4 days';
 
   const moveTruckTo = useCallback((coord: LatLng) => {
+    const duration = 1500;
+    if (Platform.OS === 'android') {
+      if (markerRef.current) {
+        markerRef.current.animateMarkerToCoordinate(coord, duration);
+      }
+    }
+
     animatedRegion.timing({
       latitude: coord.latitude,
       longitude: coord.longitude,
-      duration: 1500,
+      duration: duration,
       useNativeDriver: false,
-      toValue: 0
     } as any).start();
 
     dispatch(setLiveLocation({ latitude: coord.latitude, longitude: coord.longitude }));
@@ -234,31 +347,9 @@ const LiveTrackingScreen: React.FC = () => {
   }, [dest, dispatch]);
 
   useEffect(() => {
-    if (MOCK_MODE) return; // MOCK MODE - disabled real tracking on this screen only
     if (!liveCoord) return;
-    if (simulationRef.current) {
-      clearInterval(simulationRef.current);
-      simulationRef.current = null;
-    }
     moveTruckTo(liveCoord);
   }, [liveCoord?.latitude, liveCoord?.longitude]);
-
-  useEffect(() => {
-    if (MOCK_MODE) return; // MOCK MODE - disabled real tracking on this screen only
-    if (routeCoords.length < 2 || liveCoord) return;
-
-    if (simulationRef.current) clearInterval(simulationRef.current);
-
-    simulationRef.current = setInterval(() => {
-      simIdxRef.current += 1;
-      if (simIdxRef.current >= routeCoords.length) simIdxRef.current = 0;
-      moveTruckTo(routeCoords[simIdxRef.current]);
-    }, 2500);
-
-    return () => {
-      if (simulationRef.current) clearInterval(simulationRef.current);
-    };
-  }, [routeCoords, liveCoord]);
 
   useEffect(() => {
     notificationService.initialize();
@@ -289,12 +380,12 @@ const LiveTrackingScreen: React.FC = () => {
           longitudeDelta: Math.abs(pickup.longitude - dest.longitude) * 2.5 + 0.05,
         }}
       >
-        {!MOCK_MODE && (
+        {hasValidRoute && directionsOrigin && (
           <MapViewDirections
-            origin={pickup}
+            origin={directionsOrigin}
             destination={dest}
             apikey={GOOGLE_MAPS_API_KEY}
-            strokeWidth={0}
+            strokeWidth={0}        /* hidden — Polyline below draws */
             strokeColor="transparent"
             onReady={(result) => {
               setRouteCoords(result.coordinates);
@@ -302,23 +393,167 @@ const LiveTrackingScreen: React.FC = () => {
                 distance: `${result.distance.toFixed(1)} km`,
                 duration: `${Math.ceil(result.duration)} mins`
               });
+
+              // Initialize split routes immediately if current location is available
+              const currentCoord = { latitude: currentLat!, longitude: currentLng! };
+              if (currentLat && currentLng && result.coordinates.length > 1) {
+                const { completed, remaining } = splitRoute(result.coordinates, currentCoord);
+                setCompletedRoute(completed);
+                setRemainingRoute(remaining);
+              }
+
               mapRef.current?.fitToCoordinates(result.coordinates, {
                 edgePadding: { top: 100, right: 40, bottom: 320, left: 40 },
                 animated: true,
               });
             }}
+            onError={(err) => console.warn('[LiveTracking] Directions API error:', err)}
           />
         )}
 
-        {completedRoute.length > 1 && <Polyline coordinates={completedRoute} strokeColor="#4CAF50" strokeWidth={5} />}
-        {remainingRoute.length > 1 && <Polyline coordinates={remainingRoute} strokeColor="#2196F3" strokeWidth={5} />}
+        {/* Fallback straight-line connector — visible immediately, before road route loads */}
+        {hasValidRoute && routeCoords.length < 2 && (
+          <Polyline
+            coordinates={[pickup, dest]}
+            strokeColor="#2196F3"
+            strokeWidth={3}
+            lineDashPattern={[8, 5]}
+          />
+        )}
+
+        {/* Glow underlays (drawn first, wider, semi-transparent) */}
+        {completedRoute.length > 1 && (
+          <Polyline
+            coordinates={completedRoute}
+            strokeColor="rgba(76, 175, 80, 0.25)"
+            strokeWidth={10}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+        {remainingRoute.length > 1 && (
+          <Polyline
+            coordinates={remainingRoute}
+            strokeColor="rgba(33, 150, 243, 0.25)"
+            strokeWidth={10}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+
+        {/* If route loaded but no truck movement yet, show full route glow underlay */}
+        {routeCoords.length >= 2 && completedRoute.length < 2 && remainingRoute.length < 2 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="rgba(33, 150, 243, 0.25)"
+            strokeWidth={10}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+
+        {/* Core road routes */}
+        {completedRoute.length > 1 && (
+          <Polyline
+            coordinates={completedRoute}
+            strokeColor="#4CAF50"
+            strokeWidth={6}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+        {remainingRoute.length > 1 && (
+          <Polyline
+            coordinates={remainingRoute}
+            strokeColor="#2196F3"
+            strokeWidth={6}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+
+        {/* If route loaded but no truck movement yet, show full route in blue */}
+        {routeCoords.length >= 2 && completedRoute.length < 2 && remainingRoute.length < 2 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="#2196F3"
+            strokeWidth={6}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+
+        {/* Dynamic Route ETA Badges */}
+        {(() => {
+          const activeRoute = remainingRoute.length >= 2 ? remainingRoute : routeCoords;
+          if (activeRoute.length < 2) return null;
+          
+          const middleIndex = Math.floor(activeRoute.length / 2);
+          const middleCoord = activeRoute[middleIndex];
+          
+          const firstThirdIndex = Math.floor(activeRoute.length / 3);
+          const firstThirdCoord = activeRoute[firstThirdIndex];
+          
+          const secondThirdIndex = Math.floor((activeRoute.length * 2) / 3);
+          const secondThirdCoord = activeRoute[secondThirdIndex];
+          
+          return (
+            <>
+              {/* Primary ETA Badge */}
+              {middleCoord && (
+                <Marker
+                  coordinate={middleCoord}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                >
+                  <View style={styles.etaRouteBadge}>
+                    <Text style={styles.etaRouteText}>
+                      {tripMetrics.duration ? `${tripMetrics.duration} • Fastest` : 'Fastest'}
+                    </Text>
+                  </View>
+                </Marker>
+              )}
+
+              {/* Alternate Badge 1 */}
+              {activeRoute.length >= 6 && firstThirdCoord && (
+                <Marker
+                  coordinate={firstThirdCoord}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                >
+                  <View style={[styles.etaRouteBadge, styles.etaAlternateBadge]}>
+                    <Text style={[styles.etaRouteText, styles.etaAlternateText]}>+3 min</Text>
+                  </View>
+                </Marker>
+              )}
+
+              {/* Alternate Badge 2 */}
+              {activeRoute.length >= 9 && secondThirdCoord && (
+                <Marker
+                  coordinate={secondThirdCoord}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                >
+                  <View style={[styles.etaRouteBadge, styles.etaAlternateBadge]}>
+                    <Text style={[styles.etaRouteText, styles.etaAlternateText]}>+5 min</Text>
+                  </View>
+                </Marker>
+              )}
+            </>
+          );
+        })()}
 
         <Marker coordinate={pickup} anchor={{ x: 0.5, y: 0.5 }}><View style={styles.pickupDot} /></Marker>
         <Marker coordinate={dest} anchor={{ x: 0.5, y: 1 }}>
           <View style={styles.destPin}><View style={styles.destPinInner} /></View>
         </Marker>
 
-        <Marker.Animated coordinate={animatedRegion as any} anchor={{ x: 0.5, y: 0.5 }} flat>
+        <Marker.Animated
+          ref={markerRef}
+          coordinate={animatedRegion as any}
+          anchor={{ x: 0.5, y: 0.5 }}
+          flat
+        >
           <TruckMapIcon />
         </Marker.Animated>
       </MapView>
@@ -327,15 +562,14 @@ const LiveTrackingScreen: React.FC = () => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}><BackIcon /></TouchableOpacity>
       </SafeAreaView>
 
-    
-
+      {/* Card */}
       <Animated.View style={[styles.card, { transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [350, 0] }) }] }]}>
         <View style={styles.driverRow}>
           <View style={styles.driverInfoRow}>
             <View style={styles.avatarRing}><Image source={{ uri: driverPhoto }} style={styles.avatarImg} /></View>
             <View style={styles.driverInfo}>
               <Text style={styles.driverName}>{driverName}</Text>
-              {MOCK_MODE && nearDestination ? (
+              {nearDestination ? (
                 <Text style={[styles.driverRating, { color: '#4CAF50', fontWeight: 'bold' }]}>
                   Location Reached
                 </Text>
@@ -346,7 +580,9 @@ const LiveTrackingScreen: React.FC = () => {
               )}
             </View>
           </View>
-          <TouchableOpacity style={styles.callBtn} onPress={() => { if (driverPhone) Linking.openURL(`tel:${driverPhone}`); }}><PhoneIcon /></TouchableOpacity>
+          <SOSButton
+            onLongPress={() => setSOSVisible(true)}
+          />
         </View>
 
         {/* Route Progress Bar */}
@@ -385,14 +621,43 @@ const LiveTrackingScreen: React.FC = () => {
             <Text style={styles.infoLabel}>Deliver to</Text>
             <Text style={styles.infoValue} numberOfLines={1}>{destAddress}</Text>
           </View>
+          <TouchableOpacity style={styles.callBtn} onPress={() => { if (driverPhone) Linking.openURL(`tel:${driverPhone}`); }}><PhoneIcon /></TouchableOpacity>
         </View>
 
-        {nearDestination && (
-          <TouchableOpacity style={styles.arriveBtn} onPress={() => navigation.navigate('Delivery', { trip })}>
-            <Text style={styles.arriveBtnText}>I Have Arrived</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.arriveBtn}
+          onPress={() => navigation.navigate('VerifyDeliveryOtp', { trip: { ...trip, ...data } })}
+        >
+          <Text style={styles.arriveBtnText}>
+            {nearDestination ? 'I Have Arrived' : 'End Trip'}
+          </Text>
+        </TouchableOpacity>
       </Animated.View>
+
+      {/* SOS Emergency Bottom Sheet */}
+      <SOSBottomSheet
+        isVisible={sosVisible}
+        onClose={() => setSOSVisible(false)}
+        isLoading={sosLoading}
+        onSubmit={async (type) => {
+          setSOSLoading(true);
+          try {
+            await sendSOS({
+              tripId: tripId || '',
+              type,
+              lat: currentLat ? String(currentLat) : undefined,
+              long: currentLng ? String(currentLng) : undefined,
+            });
+          } catch (err) {
+            console.error('Failed to send SOS:', err);
+          } finally {
+            setSOSLoading(false);
+          }
+        }}
+        onSuccessDone={() => {
+          navigation.navigate('Home');
+        }}
+      />
     </View>
   );
 };
@@ -448,6 +713,33 @@ const styles = StyleSheet.create({
   progressBarFill: { height: '100%', backgroundColor: '#4CAF50' },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   progressText: { fontSize: moderateScale(10), color: '#999', fontWeight: '600', textTransform: 'uppercase' },
+  etaRouteBadge: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(5),
+    borderRadius: scale(12),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etaRouteText: {
+    fontSize: moderateScale(10),
+    fontWeight: 'bold',
+    color: '#1A202C',
+  },
+  etaAlternateBadge: {
+    backgroundColor: '#4A5568',
+    borderColor: '#4A5568',
+  },
+  etaAlternateText: {
+    color: '#FFFFFF',
+  },
 });
 
 export default LiveTrackingScreen;

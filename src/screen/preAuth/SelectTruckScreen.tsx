@@ -60,7 +60,7 @@ const SelectTruckScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity
         style={[
           styles.card,
-          { backgroundColor: bgColor },
+          { backgroundColor: bgColor, borderWidth: 0 },
           isSelected && styles.cardSelected,
         ]}
         onPress={() => toggleSelection(item)}

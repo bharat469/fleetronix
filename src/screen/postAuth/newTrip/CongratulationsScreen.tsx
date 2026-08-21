@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, BackHandler } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
@@ -14,11 +14,23 @@ const CongratulationsScreen = () => {
   const { trip } = route.params;
 
   useEffect(() => {
+    const backAction = () => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       navigation.navigate('Feedback', { trip });
     }, 3000);
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [navigation, trip]);
 
   return (
     <SafeAreaView style={styles.container}>

@@ -10,7 +10,7 @@ import {
   StatusBar,
   BackHandler,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { useTrips } from '../../../hooks/useTrips';
@@ -65,11 +65,44 @@ const AllLoadsScreen = () => {
     isLoading,
     isError,
     error,
-    refetch,
-    isRefetching,
+    refetch: refetchMain,
+    isRefetching: isRefetchingMain,
   } = useTrips(activeTab === 'all' ? 'all' : activeTab);
 
-  const trips = data?.pages.flatMap((page) => page.data) || [];
+  const {
+    data: ongoingData,
+    refetch: refetchOngoing,
+    isRefetching: isRefetchingOngoing,
+  } = useTrips('ongoing', 20, activeTab === 'completed');
+
+  const refetch = React.useCallback(() => {
+    refetchMain();
+    if (activeTab === 'completed') {
+      refetchOngoing();
+    }
+  }, [refetchMain, refetchOngoing, activeTab]);
+
+  const isRefetching = isRefetchingMain || (activeTab === 'completed' && isRefetchingOngoing);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  let trips = data?.pages.flatMap((page) => page.data) || [];
+
+  if (activeTab === 'ongoing') {
+    // Hide client-side completed trips from ongoing tab
+    trips = trips.filter((trip) => trip.status !== 'completed');
+  } else if (activeTab === 'completed') {
+    // Merge client-side completed trips from ongoing list into completed tab
+    const ongoingTrips = ongoingData?.pages.flatMap((page) => page.data) || [];
+    const clientCompletedTrips = ongoingTrips.filter((trip) => trip.status === 'completed');
+    const mainTripIds = new Set(trips.map(t => t.trip_id));
+    const uniqueClientCompleted = clientCompletedTrips.filter(t => !mainTripIds.has(t.trip_id));
+    trips = [...uniqueClientCompleted, ...trips];
+  }
 
   const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {

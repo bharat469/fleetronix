@@ -1,7 +1,16 @@
 import { io, Socket } from 'socket.io-client';
 import Config from 'react-native-config';
 
-const SOCKET_URL = Config.SOCKET_URL || 'http://103.197.76.50:8087';
+const getSocketUrl = (): string => {
+  if (Config.SOCKET_URL) {
+    return Config.SOCKET_URL;
+  }
+  const apiBase = Config.API_BASE_URL || '';
+  // Strip trailing /api or /api/ to get the base socket URL
+  return apiBase.replace(/\/api\/?$/, '');
+};
+
+const SOCKET_URL = getSocketUrl();
 
 class SocketService {
   private static instance: SocketService;

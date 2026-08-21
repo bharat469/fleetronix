@@ -1,5 +1,7 @@
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import messaging, { getInitialNotification, onMessage, onNotificationOpenedApp, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
+import { Platform } from 'react-native';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 
 /**
  * NotificationService
@@ -22,7 +24,15 @@ class NotificationService {
     notifee.onForegroundEvent(({ type, detail }) => {
       if (type === EventType.PRESS) {
         console.log('[NotificationService] User pressed notification in foreground', detail.notification);
-        // Add navigation logic here if needed
+        const filePath = detail.notification?.data?.filePath;
+        if (filePath && Platform.OS === 'android') {
+          try {
+            console.log('[NotificationService] Tapping notification, opening downloaded PDF:', filePath);
+            ReactNativeBlobUtil.android.actionViewIntent(String(filePath), 'application/pdf');
+          } catch (err) {
+            console.error('[NotificationService] Failed to open PDF from notification:', err);
+          }
+        }
       }
     });
   }

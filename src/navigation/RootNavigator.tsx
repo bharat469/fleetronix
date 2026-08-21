@@ -23,12 +23,14 @@ import AddAddressScreen from '../screen/postAuth/AddAddressScreen';
 import EnterAddressScreen from '../screen/postAuth/EnterAddressScreen';
 import KYCScreen from '../screen/postAuth/KYCScreen';
 import StatusScreen from '../screen/postAuth/StatusScreen';
+import PreferencesScreen from '../screen/postAuth/PreferencesScreen';
 import NewTripLocationScreen from '../screen/postAuth/newTrip/NewTripLocationScreen';
 import NewTripDateScreen from '../screen/postAuth/newTrip/NewTripDateScreen';
 import NewTripPreferencesScreen from '../screen/postAuth/newTrip/NewTripPreferencesScreen';
 import SearchingTruckScreen from '../screen/postAuth/newTrip/SearchingTruckScreen';
 import NegotiationZoneScreen from '../screen/postAuth/newTrip/NegotiationZoneScreen';
 import AllLoadsScreen from '../screen/postAuth/newTrip/AllLoadsScreen';
+import CompletedTripsScreen from '../screen/postAuth/newTrip/CompletedTripsScreen';
 
 import AvailableJobsScreen from '../screen/postAuth/newTrip/AvailableJobsScreen';
 import TripDetailsScreen from '../screen/postAuth/newTrip/TripDetailsScreen';
@@ -36,10 +38,10 @@ import StartTripScreen from '../screen/postAuth/newTrip/StartTripScreen';
 import ConfirmDeliveryScreen from '../screen/postAuth/newTrip/ConfirmDeliveryScreen';
 import RatingScreen from '../screen/postAuth/newTrip/RatingScreen';
 import CongratulationsScreen from '../screen/postAuth/newTrip/CongratulationsScreen';
-import FeedbackScreen from '../screen/postAuth/newTrip/FeedbackScreen';
 import LiveTrackingScreen from '../screen/postAuth/newTrip/LiveTrackingScreen';
 import VerifyDeliveryOtpScreen from '../screen/postAuth/newTrip/VerifyDeliveryOtpScreen';
 import DeliveryScreen from '../screen/postAuth/newTrip/DeliveryScreen';
+import FeedbackScreen from '../screen/postAuth/newTrip/FeedbackScreen';
 import ExpenseDashboardScreen from '../screen/postAuth/expense/ExpenseDashboardScreen';
 import AddExpenseScreen from '../screen/postAuth/expense/AddExpenseScreen';
 import ExpenseSuccessScreen from '../screen/postAuth/expense/ExpenseSuccessScreen';
@@ -140,12 +142,15 @@ export const RootNavigator = () => {
             <Stack.Screen name="EnterAddress" component={EnterAddressScreen} />
             <Stack.Screen name="KYC" component={KYCScreen} />
             <Stack.Screen name="Status" component={StatusScreen} />
+            <Stack.Screen name="Preferences" component={PreferencesScreen} />
+            <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
             <Stack.Screen name="NewTripLocation" component={NewTripLocationScreen} />
             <Stack.Screen name="NewTripDate" component={NewTripDateScreen} />
             <Stack.Screen name="NewTripPreferences" component={NewTripPreferencesScreen} />
             <Stack.Screen name="SearchingTruck" component={SearchingTruckScreen} />
             <Stack.Screen name="NegotiationZone" component={NegotiationZoneScreen} />
             <Stack.Screen name="AllLoads" component={AllLoadsScreen} />
+            <Stack.Screen name="CompletedTrips" component={CompletedTripsScreen} />
 
             <Stack.Screen name="AvailableJobs" component={AvailableJobsScreen} />
             <Stack.Screen name="TripDetails" component={TripDetailsScreen} />

@@ -7,6 +7,7 @@ import {
   TextInput,
   StatusBar,
   ScrollView,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -16,10 +17,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { getFontFamily } from '../../../helpers/fonts';
 import { COLORS } from '../../../helpers/values/colors';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
-import { setTripId } from '../../../redux/slices/tripSlice';
+import { setTripId, resetTrip } from '../../../redux/slices/tripSlice';
 import { postTripFeedback } from '../../../services/tripApi';
 import { ActivityIndicator, Alert } from 'react-native';
 
@@ -48,6 +49,23 @@ const FeedbackScreen = () => {
     }
   }, [tripId, tripRedux.tripId, dispatch]);
 
+  const handleBack = () => {
+    dispatch(resetTrip());
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
+  };
+
+  useEffect(() => {
+    const backAction = () => {
+      handleBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation, trip, tripRedux, tripId]);
+
 
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [comment, setComment] = useState('');
@@ -55,6 +73,8 @@ const FeedbackScreen = () => {
   const { mutateAsync, isPending } = useMutation({
     mutationFn: postTripFeedback,
   });
+
+  const queryClient = useQueryClient();
 
   const handleSubmit = async () => {
     if (isPending || selectedReasons.length === 0) return;
@@ -66,7 +86,13 @@ const FeedbackScreen = () => {
           mutateAsync({ tripId, reason, comment, token })
         )
       );
-      navigation.navigate('Home');
+      dispatch(resetTrip());
+      queryClient.removeQueries({ queryKey: ['tripDetails'] });
+      queryClient.removeQueries({ queryKey: ['tripBreif'] });
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
     } catch (error: any) {
       Alert.alert('Feedback Failed', error.message ?? 'Something went wrong.');
     }
@@ -91,7 +117,7 @@ const FeedbackScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <BackArrowIcon />
         </TouchableOpacity>
       </View>

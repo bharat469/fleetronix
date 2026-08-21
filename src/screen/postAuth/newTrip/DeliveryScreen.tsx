@@ -19,6 +19,12 @@ import { BackArrowIcon } from '../../../assets/svgIcons';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import { setTripId } from '../../../redux/slices/tripSlice';
+import { useDriverInfo } from '../../../hooks/useAuth';
+import { resolveImageUrl } from '../../../helpers/urlHelper';
+import { useMutation } from '@tanstack/react-query';
+import { sendTripOtp } from '../../../services/tripApi';
+import { LocationService } from '../../../services/LocationService';
+
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Delivery'>;
 
@@ -27,6 +33,59 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
   const { trip } = route.params;
   const tripId = tripRedux.tripId || trip?.trip_id || trip?.id;
   const dispatch = useDispatch();
+
+  // OMG! TanStack Query mutation to send our super cool OTP! 🚀🔥
+  // We want our delivery to trigger OTP when entering this screen! 😎
+  const sendOtpMutation = useMutation({
+    mutationFn: async () => {
+      console.log('🛸 Sending OTP for arrival/delivery, trip ID is:', tripId);
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      try {
+        const position = await LocationService.getCurrentLocation();
+        if (position?.coords) {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        }
+      } catch (err: any) {
+        console.warn('[DeliveryScreen] Could not retrieve GPS location for OTP:', err.message);
+      }
+      return sendTripOtp({
+        tripId: tripId || '',
+        codeType: 'delivery',
+        latitude,
+        longitude,
+      });
+    },
+    onSuccess: (data) => {
+      console.log('🎉 WHOOO! Delivery OTP sent successfully!', data);
+    },
+    onError: (err) => {
+      console.error('🙀 Oh no! Failed to send delivery OTP:', err.message);
+    },
+  });
+
+  const hasSentOtpRef = useRef(false);
+
+  // Automatically hit the API when user comes in delivery screen! So awesome! 🚀🚀
+  useEffect(() => {
+    if (tripId && !hasSentOtpRef.current) {
+      hasSentOtpRef.current = true;
+      console.log('🌟 Triggering sendOtpMutation inside useEffect on mount!');
+      sendOtpMutation.mutate();
+    }
+  }, [tripId]);
+
+
+  const { userToken, driverId } = useSelector((state: RootState) => state.auth);
+  const { data: driverResponse } = useDriverInfo(driverId || '', userToken || '', !!driverId && !!userToken);
+  const driver = driverResponse?.data;
+
+  const driverName  = (driver?.full_name || driver?.first_name || trip?.driver_name) ?? tripRedux.driverName ?? (tripRedux.tripData as any)?.driver_name ?? 'Driver';
+  const driverPhoto = (resolveImageUrl(driver?.photo_path) || trip?.driver_photo_url) ?? tripRedux.driverPhoto ?? (tripRedux.tripData as any)?.driver_photo_url
+    ?? 'https://randomuser.me/api/portraits/men/32.jpg';
+
+  const shipperPhone = trip?.shipper_mobile || '0';
 
   useEffect(() => {
     if (tripId && !tripRedux.tripId) {
@@ -75,16 +134,16 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.customerCard}>
           <View style={styles.customerHeader}>
             <Image 
-              source={{ uri: trip?.image || 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+              source={{ uri: driverPhoto }} 
               style={styles.customerPic} 
             />
             <View style={styles.customerInfo}>
-              <Text style={styles.customerName}>{trip?.customer_name || 'Customer'}</Text>
-              <Text style={styles.customerLabel}>Receiver</Text>
+              <Text style={styles.customerName}>{driverName}</Text>
+              <Text style={styles.customerLabel}>Driver</Text>
             </View>
             <TouchableOpacity 
               style={styles.callBtn}
-              onPress={() => Linking.openURL(`tel:${trip?.customer_mobile || '911'}`)}
+              onPress={() => Linking.openURL(`tel:${shipperPhone}`)}
             >
               <SvgIcon name="phoneActions" width={20} height={20} color="white" />
             </TouchableOpacity>
@@ -100,6 +159,16 @@ const DeliveryScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Package</Text>
               <Text style={styles.detailValue}>{trip?.truck_type || 'General'}</Text>
+            </View>
+          </View>
+          <View style={[styles.detailRow, { marginTop: verticalScale(14) }]}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Task</Text>
+              <Text style={styles.detailValue}>{trip?.task || 'Automobiles'}</Text>
+            </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Shipper Mobile</Text>
+              <Text style={styles.detailValue}>{shipperPhone}</Text>
             </View>
           </View>
         </View>

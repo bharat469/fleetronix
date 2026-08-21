@@ -135,9 +135,13 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
       const fileName = typeof value === 'object' ? (value.fileName || value.name) : null;
       const type = typeof value === 'object' ? value.type : null;
 
-      const cleanPath = uri.startsWith('file://')
-        ? decodeURIComponent(uri.replace('file://', ''))
-        : uri;
+      let cleanPath = uri;
+      if (uri.startsWith('file://')) {
+        cleanPath = decodeURIComponent(uri.replace('file://', ''));
+      } else if (uri.startsWith('content://')) {
+        // content:// URIs: ReactNativeBlobUtil.wrap supports them directly on Android
+        cleanPath = uri;
+      }
       const name = fileName || uri.split('/').pop() || `${key}.jpg`;
 
       console.log(`[updateDriver] 📂 Attaching file: key="${key}", filename="${name}", path="${cleanPath}", type="${type || 'image/jpeg'}"`);
@@ -228,5 +232,14 @@ export const updateDriver = async (payload: UpdateDriverPayload): Promise<any> =
 
 export const getDriverInfo = async (driverId: string, token: string): Promise<any> => {
   const response = await apiClient.get(`/driver/${driverId}`);
-  return response.data;
+  const data = response.data;
+  console.log('[getDriverInfo] 🔍 Photo fields:', {
+    photo_path: data?.data?.photo_path,
+    driver_photo: data?.data?.driver_photo,
+    photo_url: data?.data?.photo_url,
+    driver_photo_url: data?.data?.driver_photo_url,
+    image: data?.data?.image,
+    profile_image: data?.data?.profile_image,
+  });
+  return data;
 };
